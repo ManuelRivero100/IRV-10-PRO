@@ -1,0 +1,17 @@
+{
+  "name": "Partes IRV-10",
+  "short_name": "IRV-10",
+  "description": "Gestión de partes de trabajo IRV-10",
+  "start_url": "/IRV-partes-v21/",
+  "display": "standalone",
+  "background_color": "#12141c",
+  "theme_color": "#2d9e5f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
