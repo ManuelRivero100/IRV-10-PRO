@@ -4551,7 +4551,7 @@ function autorelleno_leerPDF(file){
       if(texto.trim().length > 20){
         autorelleno_procesar(texto);
       } else {
-        autorelleno_mostrarError('PDF sin texto extraíble. Usa una foto.');
+        autorelleno_mostrarError('Este PDF es una imagen escaneada y no tiene texto extraíble.');
       }
     } catch(err){
       autorelleno_mostrarError('Error leyendo PDF: '+err.message);
@@ -4561,64 +4561,13 @@ function autorelleno_leerPDF(file){
 }
 
 function autorelleno_pdfComoImagen(file){
-  // Si el PDF no tiene texto extraíble, tratar como imagen
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var img = new Image();
-    img.onload = function(){
-      var canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img,0,0);
-      autorelleno_OCR(canvas);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  autorelleno_mostrarError('Este PDF es una imagen escaneada. Usa un PDF con texto o conéctate para usar la cámara.');
 }
 
 function autorelleno_leerImagen(file){
-  var status = $('autorelleno_status');
-  status.textContent = 'Procesando imagen...';
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var img = new Image();
-    img.onload = function(){
-      var canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img,0,0);
-      autorelleno_OCR(canvas);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  autorelleno_mostrarError('Las imágenes requieren conexión a internet. Usa un PDF con texto o conéctate para usar la cámara.');
 }
 
-function autorelleno_OCR(canvas){
-  var status = $('autorelleno_status');
-  status.textContent = 'Reconociendo texto...';
-  if(typeof Tesseract === 'undefined'){
-    // Cargar Tesseract dinámicamente (se cachea con SW)
-    var script = document.createElement('script');
-    script.src = 'https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js';
-    script.onload = function(){ autorelleno_OCR(canvas); };
-    script.onerror = function(){ autorelleno_mostrarError('OCR no disponible sin conexión. Usa un PDF con texto.'); };
-    document.head.appendChild(script);
-    return;
-  }
-  Tesseract.recognize(canvas, 'spa', {
-    logger: function(m){
-      if(m.status==='recognizing text'){
-        status.textContent = 'Reconociendo... '+Math.round(m.progress*100)+'%';
-      }
-    }
-  }).then(function(result){
-    autorelleno_procesar(result.data.text);
-  }).catch(function(err){
-    autorelleno_mostrarError('Error en OCR: '+err.message);
-  });
-}
 
 function autorelleno_procesar(texto){
   // Usar la lógica existente de leer() pasando el texto al textarea oculto
