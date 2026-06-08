@@ -4525,38 +4525,33 @@ function autorelleno_archivo(input){
 
 function autorelleno_leerPDF(file){
   var status = $('autorelleno_status');
-  // Leer PDF como texto usando FileReader
-  // Los PDF de la app son texto seleccionable — no necesitan OCR
+  status.textContent = 'Leyendo PDF...';
   var reader = new FileReader();
   reader.onload = function(e){
     try{
-      // Intentar extraer texto del PDF como texto plano
-      var raw = e.target.result;
-      // Buscar texto legible en el binario del PDF
+      // Convertir ArrayBuffer a string para poder hacer match
+      var bin = new Uint8Array(e.target.result);
+      var raw = '';
+      for(var i=0;i<bin.length;i++){
+        raw += String.fromCharCode(bin[i]);
+      }
+      // Extraer texto legible (caracteres ASCII imprimibles)
       var texto = '';
-      // Extraer streams de texto del PDF
-      var matches = raw.match(/BT[\s\S]*?ET/g);
-      if(matches && matches.length){
-        matches.forEach(function(m){
-          var tj = m.match(/\(([^)]+)\)\s*Tj/g);
-          if(tj) tj.forEach(function(t){ texto += t.replace(/\(([^)]+)\)\s*Tj/,'$1') + ' '; });
-        });
-      }
-      // Fallback: buscar patrones directamente en el binario
-      if(!texto.trim()){
-        var bin = new Uint8Array(e.target.result);
-        var str = '';
-        for(var i=0;i<bin.length;i++){
-          if(bin[i]>=32&&bin[i]<127) str+=String.fromCharCode(bin[i]);
-          else str+=' ';
+      var chunk = '';
+      for(var i=0;i<raw.length;i++){
+        var c = raw.charCodeAt(i);
+        if(c>=32 && c<127){
+          chunk += raw[i];
+        } else {
+          if(chunk.length > 3) texto += chunk + ' ';
+          chunk = '';
         }
-        texto = str;
       }
+      if(chunk.length > 3) texto += chunk;
       if(texto.trim().length > 20){
         autorelleno_procesar(texto);
       } else {
-        // PDF escaneado como imagen — usar OCR
-        autorelleno_pdfComoImagen(file);
+        autorelleno_mostrarError('PDF sin texto extraíble. Usa una foto.');
       }
     } catch(err){
       autorelleno_mostrarError('Error leyendo PDF: '+err.message);
