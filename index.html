@@ -4606,7 +4606,7 @@ function autorelleno_OCR(canvas){
   if(typeof Tesseract === 'undefined'){
     // Cargar Tesseract dinámicamente (se cachea con SW)
     var script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+    script.src = 'https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js';
     script.onload = function(){ autorelleno_OCR(canvas); };
     script.onerror = function(){ autorelleno_mostrarError('OCR no disponible sin conexión. Usa un PDF con texto.'); };
     document.head.appendChild(script);
