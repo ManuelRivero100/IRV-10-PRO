@@ -4528,34 +4528,56 @@ function autorelleno_leerPDF(file){
   status.textContent = 'Leyendo PDF...';
   var reader = new FileReader();
   reader.onload = function(e){
-    try{
-      // Convertir ArrayBuffer a string para poder hacer match
-      var bin = new Uint8Array(e.target.result);
-      var raw = '';
-      for(var i=0;i<bin.length;i++){
-        raw += String.fromCharCode(bin[i]);
-      }
-      // Extraer texto legible (caracteres ASCII imprimibles)
-      var texto = '';
-      var chunk = '';
-      for(var i=0;i<raw.length;i++){
-        var c = raw.charCodeAt(i);
-        if(c>=32 && c<127){
-          chunk += raw[i];
-        } else {
-          if(chunk.length > 3) texto += chunk + ' ';
-          chunk = '';
+    var typedArray = new Uint8Array(e.target.result);
+    function procesarConPdfJs(){
+      pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
+        var totalPages = pdf.numPages;
+        var textos = [];
+        var paginas = [];
+        for(var i = 1; i <= totalPages; i++) paginas.push(i);
+        function procesarPagina(num){
+          return pdf.getPage(num).then(function(page){
+            return page.getTextContent();
+          }).then(function(content){
+            var str = content.items.map(function(item){ return item.str; }).join(' ');
+            textos.push(str);
+          });
         }
-      }
-      if(chunk.length > 3) texto += chunk;
-      if(texto.trim().length > 20){
-        autorelleno_procesar(texto);
-      } else {
-        autorelleno_mostrarError('Este PDF es una imagen escaneada y no tiene texto extraíble.');
-      }
-    } catch(err){
-      autorelleno_mostrarError('Error leyendo PDF: '+err.message);
+        paginas.reduce(function(chain, num){
+          return chain.then(function(){ return procesarPagina(num); });
+        }, Promise.resolve()).then(function(){
+          var texto = textos.join('\n');
+          if(texto.trim().length > 10){
+            autorelleno_procesar(texto);
+          } else {
+            autorelleno_mostrarError('El PDF no contiene texto extraíble. Puede ser una imagen escaneada.');
+          }
+        }).catch(function(err){
+          autorelleno_mostrarError('Error procesando PDF: ' + err.message);
+        });
+      }).catch(function(err){
+        autorelleno_mostrarError('Error leyendo PDF: ' + err.message);
+      });
     }
+    if(typeof pdfjsLib === 'undefined'){
+      status.textContent = 'Cargando lector de PDF...';
+      var script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = function(){
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        procesarConPdfJs();
+      };
+      script.onerror = function(){
+        autorelleno_mostrarError('No se pudo cargar el lector de PDF. Comprueba la conexión a internet.');
+      };
+      document.head.appendChild(script);
+    } else {
+      procesarConPdfJs();
+    }
+  };
+  reader.onerror = function(){
+    autorelleno_mostrarError('Error al leer el archivo.');
   };
   reader.readAsArrayBuffer(file);
 }
