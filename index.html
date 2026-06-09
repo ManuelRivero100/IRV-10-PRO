@@ -2939,40 +2939,41 @@ function pdfDesde(r){
 
   var codigos=r.codigos||[];
   if(codigos.length){
-    // Reconstruir bandas horarias desde datos del parte
-    var arrM=r.arr?parseInt(r.arr.split(':')[0])*60+parseInt(r.arr.split(':')[1]):0;
-    var leaM=r.lea?parseInt(r.lea.split(':')[0])*60+parseInt(r.lea.split(':')[1]):0;
-    var trI=r.tr||0;
-    var trO=r.trS||r.tr||0;
-    var kmU=r.linkType==='Si'?(r.kmDif||0):(r.km||0)/2;
-
+    // Helpers para bandas horarias
     function _fT(m){ return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2); }
     function _tl(a,b){ return '('+_fT(a)+') - ('+_fT(b)+')'; }
     function _fmt(v){ var rv=Math.round(v*100)/100; return Number.isInteger(rv)?''+rv:(''+rv).replace(/0+$/,'').replace(/\.$/,''); }
 
-    if(r.linkType==='No'){
-      if(trI>0) y=pdfGroupTitle(doc,y,_tl(arrM-trI,arrM)+' \u00b7 '+_fmt(kmU)+' km');
-      y=pdfGroupTitle(doc,y,_tl(arrM,leaM)+' TIENDA');
-    } else if(r.linkType==='Si'){
-      var kE=r.km||0;
-      if(trI>0) y=pdfGroupTitle(doc,y,_tl(arrM-trI,arrM)+' \u00b7 '+_fmt(kE)+' km');
-      y=pdfGroupTitle(doc,y,_tl(arrM,leaM)+' TIENDA');
-    }
+    var arrM=r.arr?parseInt(r.arr.split(':')[0])*60+parseInt(r.arr.split(':')[1]):0;
+    var leaM=r.lea?parseInt(r.lea.split(':')[0])*60+parseInt(r.lea.split(':')[1]):0;
+    var trI=r.tr||0;
+    var trO=r.trS||r.tr||0;
+    var kmU=r.km||0;
 
-    // Separar km del resto para poder poner el label de vuelta
+    // Separar códigos por tipo
     var codKm=codigos.filter(function(c){ return c.u==='km'; });
     var codHoras=codigos.filter(function(c){ return c.u!=='km'&&(c.lab||'').indexOf('Dsp')===-1&&c.u!=='dieta'; });
     var codDsp=codigos.filter(function(c){ return (c.lab||'').indexOf('Dsp')!==-1; });
     var codDieta=codigos.filter(function(c){ return c.u==='dieta'; });
 
+    // Tramo ida
+    if(trI>0&&arrM>0){
+      y=pdfGroupTitle(doc,y,_tl(arrM-trI,arrM)+' \u00b7 '+_fmt(kmU)+' km');
+    }
     codKm.forEach(function(c){
       y=pdfCodeRow(doc,y,c.cod,c.lab,Math.round(c.v)+' km');
     });
+
+    // Tramo tienda
+    if(arrM>0&&leaM>0){
+      y=pdfGroupTitle(doc,y,_tl(arrM,leaM)+' TIENDA');
+    }
     codHoras.forEach(function(c){
       y=pdfCodeRow(doc,y,c.cod,c.lab,fmtH(c.v));
     });
-    if(trO>0&&codDsp.length){
-      y+=1;
+
+    // Tramo vuelta
+    if(trO>0&&leaM>0&&codDsp.length){
       y=pdfGroupTitle(doc,y,_tl(leaM,leaM+trO)+' \u00b7 '+_fmt(kmU)+' km');
     }
     codDsp.forEach(function(c){
@@ -2981,22 +2982,29 @@ function pdfDesde(r){
     codDieta.forEach(function(c){
       y=pdfCodeRow(doc,y,c.cod,c.lab,'\u00d7 '+Math.round(c.v));
     });
+
     y+=2;
     var hTotal=0;
     codHoras.forEach(function(c){ hTotal+=c.v; });
     if(hTotal>0){ y=pdfTotalRow(doc,y,fmtH(hTotal)); y+=2; }
-  }
 
-  // Trabajadores
-  if(r.roles&&r.roles.length){
-    var noms=wNames&&wNames.length?wNames:r.roles;
-    var nomsStr=noms.filter(function(n){ return n&&n.trim(); }).join(' · ');
-    if(nomsStr){
-      y=pdfCheck(doc,y,8);
-      doc.setFontSize(8); doc.setFont('helvetica','normal');
-      doc.setTextColor(_PDF.text2[0],_PDF.text2[1],_PDF.text2[2]);
-      doc.text(nomsStr,_PDF.mg+_PDF.cW/2,y+5,{align:'center'});
-      y+=10;
+    // Trabajadores
+    if(r.roles&&r.roles.length){
+      var noms=[];
+      // Intentar extraer nombres del detalle HTML
+      if(r.detalle){
+        var nomMatch=r.detalle.match(/letter-spacing:[^>]*>([^<]+)<\/div>/);
+        if(nomMatch) noms=nomMatch[1].split(/\s*·\s*|\s*&middot;\s*/).map(function(n){return n.trim();}).filter(Boolean);
+      }
+      if(!noms.length) noms=r.roles;
+      var nomsStr=noms.join(' · ');
+      if(nomsStr){
+        y=pdfCheck(doc,y,8);
+        doc.setFontSize(8); doc.setFont('helvetica','normal');
+        doc.setTextColor(_PDF.text2[0],_PDF.text2[1],_PDF.text2[2]);
+        doc.text(nomsStr,_PDF.mg+_PDF.cW/2,y+5,{align:'center'});
+        y+=10;
+      }
     }
   }
 
@@ -4580,56 +4588,34 @@ function autorelleno_leerPDF(file){
   status.textContent = 'Leyendo PDF...';
   var reader = new FileReader();
   reader.onload = function(e){
-    var typedArray = new Uint8Array(e.target.result);
-    function procesarConPdfJs(){
-      pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
-        var totalPages = pdf.numPages;
-        var textos = [];
-        var paginas = [];
-        for(var i = 1; i <= totalPages; i++) paginas.push(i);
-        function procesarPagina(num){
-          return pdf.getPage(num).then(function(page){
-            return page.getTextContent();
-          }).then(function(content){
-            var str = content.items.map(function(item){ return item.str; }).join(' ');
-            textos.push(str);
-          });
+    try{
+      // Convertir ArrayBuffer a string para poder hacer match
+      var bin = new Uint8Array(e.target.result);
+      var raw = '';
+      for(var i=0;i<bin.length;i++){
+        raw += String.fromCharCode(bin[i]);
+      }
+      // Extraer texto legible (caracteres ASCII imprimibles)
+      var texto = '';
+      var chunk = '';
+      for(var i=0;i<raw.length;i++){
+        var c = raw.charCodeAt(i);
+        if(c>=32 && c<127){
+          chunk += raw[i];
+        } else {
+          if(chunk.length > 3) texto += chunk + ' ';
+          chunk = '';
         }
-        paginas.reduce(function(chain, num){
-          return chain.then(function(){ return procesarPagina(num); });
-        }, Promise.resolve()).then(function(){
-          var texto = textos.join('\n');
-          if(texto.trim().length > 10){
-            autorelleno_procesar(texto);
-          } else {
-            autorelleno_mostrarError('El PDF no contiene texto extraíble. Puede ser una imagen escaneada.');
-          }
-        }).catch(function(err){
-          autorelleno_mostrarError('Error procesando PDF: ' + err.message);
-        });
-      }).catch(function(err){
-        autorelleno_mostrarError('Error leyendo PDF: ' + err.message);
-      });
+      }
+      if(chunk.length > 3) texto += chunk;
+      if(texto.trim().length > 20){
+        autorelleno_procesar(texto);
+      } else {
+        autorelleno_mostrarError('Este PDF es una imagen escaneada y no tiene texto extraíble.');
+      }
+    } catch(err){
+      autorelleno_mostrarError('Error leyendo PDF: '+err.message);
     }
-    if(typeof pdfjsLib === 'undefined'){
-      status.textContent = 'Cargando lector de PDF...';
-      var script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload = function(){
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        procesarConPdfJs();
-      };
-      script.onerror = function(){
-        autorelleno_mostrarError('No se pudo cargar el lector de PDF. Comprueba la conexión a internet.');
-      };
-      document.head.appendChild(script);
-    } else {
-      procesarConPdfJs();
-    }
-  };
-  reader.onerror = function(){
-    autorelleno_mostrarError('Error al leer el archivo.');
   };
   reader.readAsArrayBuffer(file);
 }
@@ -4643,70 +4629,20 @@ function autorelleno_leerImagen(file){
 }
 
 
-function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function autorelleno_procesar(texto){
-  var raw = $('raw'); if(raw) raw.value = texto;
-
-  // Extraer número de orden del PDF
-  var pedidoExtraido = null;
-  var m1 = texto.match(/PEDIDO DE SERVICIO\s+N[°º:]+\s*(\d+)/i)
-    || texto.match(/N[º°]\s*ORDEN[\s:]+(\d+)/i)
-    || texto.match(/^\s*N[ºo°]?\s*ORDEN\s+(\d+)/im);
-  if(m1) pedidoExtraido = m1[1].trim();
-
-  // Buscar el parte más reciente con ese número de orden en el historial
-  var idxEncontrado = -1;
-  if(pedidoExtraido){
-    var h = getH();
-    for(var i = h.length-1; i >= 0; i--){
-      var r = h[i];
-      if((r.clienteId||'mercadona') === (curCliente?curCliente.id:'mercadona')
-        && r.pedido === pedidoExtraido){
-        idxEncontrado = i;
-        break;
-      }
-    }
-  }
-
-  var status = $('autorelleno_status');
-
-  if(idxEncontrado >= 0){
-    // Encontrado en historial — rellenar formulario igual que editar pero sin _editIdx
-    $('dlgInicioOrden').classList.remove('show');
-    abrirEdicionParte(idxEncontrado);
-    _editIdx = null; // No sobreescribir el original al guardar
-    if(status){
-      status.style.background = 'var(--green-light)';
-      status.style.color = 'var(--green)';
-      status.textContent = '✓ Formulario rellenado. Modifica lo que necesites antes de guardar.';
-      setTimeout(function(){ status.style.display='none'; ocultarLectura(); }, 3000);
-    }
-  } else {
-    // No está en historial — extraer lo que se pueda del texto
-    window._pendingPDF = texto;
-    if($('dlgInicioOrden') && !$('dlgInicioOrden').classList.contains('show')){
-      _aplicarPDF(texto);
-    }
-    if(status){
-      status.style.background = 'var(--amber-light)';
-      status.style.color = 'var(--amber)';
-      status.textContent = '⚠ Parte no encontrado en historial. Revisa los campos.';
-      setTimeout(function(){ status.style.display='none'; }, 3000);
-    }
-  }
-}
-
-function _aplicarPDF(texto){
-  var raw = $('raw'); if(raw) raw.value = texto;
+  // Usar la lógica existente de leer() pasando el texto al textarea oculto
+  var raw = $('raw');
+  if(raw) raw.value = texto;
   leer();
-  window._pendingPDF = null;
+  // Mostrar resultado
   var status = $('autorelleno_status');
-  if(status){
-    status.style.background = 'var(--green-light)';
-    status.style.color = 'var(--green)';
-    status.textContent = '✓ Datos extraídos del PDF.';
-    setTimeout(function(){ status.style.display='none'; ocultarLectura(); }, 2000);
-  }
+  status.style.background = 'var(--green-light)';
+  status.style.color = 'var(--green)';
+  status.textContent = '✓ Datos extraídos. Revisa el formulario.';
+  setTimeout(function(){ 
+    if(status) status.style.display='none';
+    ocultarLectura();
+  }, 2000);
 }
 
 function autorelleno_mostrarError(msg){
@@ -4719,118 +4655,30 @@ function autorelleno_mostrarError(msg){
 
 function leer(){
   var t=$('raw').value; if(!t.trim()){ showMsg('msgForm','Pega el texto primero.','warn'); return; }
-
-  // Nº orden
-  var pedido = cap(/PEDIDO DE SERVICIO\s+N[°º:]+\s*(\d+)/i,t)
-    || cap(/N[º°]\s*ORDEN[\s:]+(\d+)/i,t)
-    || cap(/^\s*N[ºo°]?\s*ORDEN\s+(\d+)/im,t)
-    || cap(/(\d{6,})/,t);
-
-  // Nº centro
-  var centro = cap(/N[°º]\s*de\s*Centro[:\s]+(\d+)/i,t)
-    || cap(/Centro[:\s:-]+(\d+)/i,t)
-    || cap(/\b(\d{4})\b/,t);
-
-  // Denominación / tienda
-  var denom = cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t)
-    || cap(/^TIENDA\s+(.+)$/im,t);
-  var tienda='';
-  if(denom){
-    var dn=denom.trim();
-    tienda=(dn.toLowerCase().indexOf('mercadona')===0)?dn:'Mercadona '+dn+(centro?' '+centro:'');
-  }
-
-  // Dirección — usar la más larga (más completa)
-  var dir='';
-  var dirPatterns=[
-    /Direcci[oó]n[:\s]+([^\n]{10,})/i,
-    /^DIRECCI[OÓ]N\s+(.+)$/im,
-    /Direcci[oó]n[:\s]+([^\n]+)/i
-  ];
-  dirPatterns.forEach(function(p){
-    var m=t.match(p);
-    if(m){
-      var d=m[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim();
-      if(d.length>dir.length) dir=d;
-    }
-  });
-
-  // Teléfono
-  var tel = cap(/Tel[eé]fono\s+de\s+contacto[:\s]+(\+?[\d][\d\s]{6,})/i,t)
-    || cap(/^TEL[EÉ]FONO\s+(\d[\d\s]{6,})/im,t)
-    || cap(/Tel[eé]fono[:\s]+(\+?[\d][\d\s\-]{6,})/i,t);
-  if(tel) tel=tel.replace(/\s+/g,'').replace(/^\+34/,'');
-
-  // Tipo de trabajo
-  var tipo = cap(/Clasificaci[oó]n[:\s]+(Climatizaci[oó]n|Conductos|Obras|Electricidad)/i,t)
-    || cap(/^TIPO\s+(.+)$/im,t);
-
-  // Materiales — formato "MAT. Nombre xCantidad"
-  var matsExtraidos=[];
-  var matReg=/MAT\.\s+(.+?)\s+x([\d.]+)/gi;
-  var mm;
-  while((mm=matReg.exec(t))!==null){
-    var cant=parseFloat(mm[2]);
-    matsExtraidos.push({cod:'',nombre:mm[1].trim(),cantidad:cant});
-  }
-
-  // Rellenar campos — el PDF sobreescribe siempre
-  if(pedido) $('pedido').value=pedido.trim();
-  if(centro){ $('centro').value=centro.trim(); }
-  if(dir) $('dir').value=dir;
-  if(tel) $('tel').value=tel;
-  // Tienda al final para que no sea sobreescrita por autocompletado del historial
-  if(tienda){
-    setTimeout(function(){
-      $('tienda').value=tienda;
-      // Ocultar autocomplete si estuviera visible
-      var ac=$('acRef'); if(ac) ac.classList.remove('show');
-      var ac2=$('acCentro'); if(ac2) ac2.classList.remove('show');
-    }, 150);
-  }
-
-  // Tipo de trabajo
-  var tipoNorm='';
-  if(tipo){
-    var t2=tipo.trim();
-    if(/climatiz/i.test(t2)) tipoNorm='Climatización';
-    else if(/conducto/i.test(t2)) tipoNorm='Conductos';
-    else if(/obra/i.test(t2)) tipoNorm='Obras';
-    else if(/electr/i.test(t2)) tipoNorm='Electricidad';
-  } else if(/conducto|ventilac/i.test(t)){ tipoNorm='Conductos'; }
-  else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){ tipoNorm='Climatización'; }
-  else if(/obra/i.test(t)){ tipoNorm='Obras'; }
-  if(tipoNorm){
-    // Intentar ahora, y también con delay por si el jobTgl no está listo
-    function _setTipo(){ document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent.trim()===tipoNorm) setJob(tipoNorm,b); }); }
-    _setTipo();
-    setTimeout(_setTipo, 300);
-  }
-
-  // Km desde códigos de facturación
-  var kmVal = cap(/Kmje\s+([\d.]+)\s*km/i,t);
-  if(kmVal){
-    $('km').value=kmVal;
-    $('kmE').value=kmVal;
-  }
-
-  // Cargar materiales en el sistema ms*
-  if(matsExtraidos.length>0){
-    setTimeout(function(){
-      msInitSel(matsExtraidos);
-      if(curJob) msRender('parteMatCard');
-      // Mostrar sección materiales
-      var cmfw=$('cardMatFormWrap'); if(cmfw) cmfw.style.display='block';
-      var cmf=$('cardMatForm'); if(cmf) cmf.style.display='block';
-      var bm=$('btnMateriales'); if(bm){ bm.style.background='var(--green-light)'; bm.style.borderColor='var(--green)'; bm.style.color='var(--green)'; }
-    }, 300);
-  }
-
+  var pedido=cap(/PEDIDO DE SERVICIO\s+N[º°ª]?[:\s]+(\d+)/i,t)||cap(/(\d{6,})/,t);
+  var centro=cap(/N[º°ª]?\s*de\s*Centro[:\s]+(\d+)/i,t)||cap(/Centro[:\s-]+(\d+)/i,t);
+  var denom=cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t);
+  var tel=cap(/Tel[eé]fono[^:]*:\s*(\+?[\d][\d\s\-]{6,})/i,t);
+  var dir=''; var dm=t.match(/Direcci[oó]n[:\s]+([^\n]+)/i);
+  if(dm){ dir=dm[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim(); }
+  if(pedido&&!$('pedido').value) $('pedido').value=pedido.trim();
   setTimeout(ocultarLectura, 600);
-  var n=[pedido,centro,tienda,dir,tel].filter(Boolean).length+(matsExtraidos.length>0?1:0);
-  showMsg('msgForm',n?n+' campo(s) autocompletados'+(matsExtraidos.length?' + '+matsExtraidos.length+' material(es)':'')+'.'
-    :'No se encontraron datos.',n?'success':'warn');
+  if(centro&&!$('centro').value) $('centro').value=centro.trim();
+  if(!$('tienda').value){
+    var dl=denom?denom.replace(/\s*(Direcci[oó]n|Tel[eé]fono|Calle|Avda|Plaza)[:\s].*/i,'').trim():'';
+    $('tienda').value=dl&&centro?'Mercadona '+dl+' '+centro.trim():dl?'Mercadona '+dl:centro?'Mercadona '+centro.trim():'';
+  }
+  if(dir&&!$('dir').value) $('dir').value=dir;
+  if(tel&&!$('tel').value) $('tel').value=tel.replace(/\s+/g,'').trim();
+  if(/conducto|ventilac/i.test(t)){ var btns=document.querySelectorAll('#jobTgl button'); btns.forEach(function(b){ if(b.textContent==='Conductos') setJob('Conductos',b); }); }
+  else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){ var btns2=document.querySelectorAll('#jobTgl button'); btns2.forEach(function(b){ if(b.textContent==='Climatización') setJob('Climatización',b); }); }
+  else if(/obra/i.test(t)){ var btns3=document.querySelectorAll('#jobTgl button'); btns3.forEach(function(b){ if(b.textContent==='Obras') setJob('Obras',b); }); }
+  var n=[pedido,centro,denom,dir,tel].filter(Boolean).length;
+  showMsg('msgForm',n?n+' campo(s) autocompletados.':'No se encontraron datos.',n?'success':'warn');
 }
+
+// ===== HISTORIAL =====
+
 function renderSearchResults(){
   var q=($('busca')?($('busca').value||''):'').toLowerCase();
   var qf=$('buscaF')?($('buscaF').value||''):'';
@@ -5018,11 +4866,6 @@ function respInicioOrden(tipo){
       _pedidoNoMerc=nextIRV();
       $('pedidoGenDisplay').textContent=_pedidoNoMerc;
     }
-    // Aplicar PDF pendiente si hay uno
-    if(window._pendingPDF){
-      setTimeout(function(){ _aplicarPDF(window._pendingPDF); }, 400);
-    }
-    // Si venía de PDF con historial, _editIdx ya fue puesto a null por autorelleno_procesar
   } else {
     // Mostrar lista si está oculta (sin órdenes activas → botón "Existente" no debería aparecer)
     var lista=$('dlgOrdenesActivas');
@@ -5298,11 +5141,7 @@ function _finalizarGuardado(estado){
     setTimeout(function(){ goTo('w-menu'); },1200);
     return;
   }
-  // Detectar parte idéntico (misma fecha, orden, centro y cliente)
-  if(exists(r,h)){
-    showMsg('msgRes','⚠ Ya existe un parte con estos mismos datos. Si quieres modificar un parte anterior, edítalo desde el historial.','warn');
-    return;
-  }
+  if(exists(r,h)){ showMsg('msgRes','Este parte ya est\u00e1 guardado.','warn'); return; }
   h.push(r); setH(h);
   showMsg('msgRes','Guardado correctamente.','success');
   $('gbtn').textContent='\u2713 Guardado'; $('gbtn').disabled=true; $('gbtn').style.opacity='.6';
