@@ -2933,19 +2933,71 @@ function pdfDesde(r){
   if(r.tienda)   y=pdfInfoRow(doc,y,'TIENDA',  r.tienda);
   if(r.dir)      y=pdfInfoRow(doc,y,'DIRECCI\u00d3N',r.dir);
   if(r.tel)      y=pdfInfoRow(doc,y,'TEL\u00c9FONO',r.tel);
+  if(r.arr)      y=pdfInfoRow(doc,y,'LLEGADA',  r.arr);
+  if(r.lea)      y=pdfInfoRow(doc,y,'SALIDA',   r.lea);
   y+=3;
 
   var codigos=r.codigos||[];
   if(codigos.length){
-    y=pdfGroupTitle(doc,y,'C\u00f3digos de facturaci\u00f3n');
-    codigos.forEach(function(c){
-      var val=c.u==='km'?Math.round(c.v)+' km':c.u==='dieta'?'\u00d7 '+Math.round(c.v):fmtH(c.v);
-      y=pdfCodeRow(doc,y,c.cod,c.lab,val);
+    // Reconstruir bandas horarias desde datos del parte
+    var arrM=r.arr?parseInt(r.arr.split(':')[0])*60+parseInt(r.arr.split(':')[1]):0;
+    var leaM=r.lea?parseInt(r.lea.split(':')[0])*60+parseInt(r.lea.split(':')[1]):0;
+    var trI=r.tr||0;
+    var trO=r.trS||r.tr||0;
+    var kmU=r.linkType==='Si'?(r.kmDif||0):(r.km||0)/2;
+
+    function _fT(m){ return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2); }
+    function _tl(a,b){ return '('+_fT(a)+') - ('+_fT(b)+')'; }
+    function _fmt(v){ var rv=Math.round(v*100)/100; return Number.isInteger(rv)?''+rv:(''+rv).replace(/0+$/,'').replace(/\.$/,''); }
+
+    if(r.linkType==='No'){
+      if(trI>0) y=pdfGroupTitle(doc,y,_tl(arrM-trI,arrM)+' \u00b7 '+_fmt(kmU)+' km');
+      y=pdfGroupTitle(doc,y,_tl(arrM,leaM)+' TIENDA');
+    } else if(r.linkType==='Si'){
+      var kE=r.km||0;
+      if(trI>0) y=pdfGroupTitle(doc,y,_tl(arrM-trI,arrM)+' \u00b7 '+_fmt(kE)+' km');
+      y=pdfGroupTitle(doc,y,_tl(arrM,leaM)+' TIENDA');
+    }
+
+    // Separar km del resto para poder poner el label de vuelta
+    var codKm=codigos.filter(function(c){ return c.u==='km'; });
+    var codHoras=codigos.filter(function(c){ return c.u!=='km'&&(c.lab||'').indexOf('Dsp')===-1&&c.u!=='dieta'; });
+    var codDsp=codigos.filter(function(c){ return (c.lab||'').indexOf('Dsp')!==-1; });
+    var codDieta=codigos.filter(function(c){ return c.u==='dieta'; });
+
+    codKm.forEach(function(c){
+      y=pdfCodeRow(doc,y,c.cod,c.lab,Math.round(c.v)+' km');
+    });
+    codHoras.forEach(function(c){
+      y=pdfCodeRow(doc,y,c.cod,c.lab,fmtH(c.v));
+    });
+    if(trO>0&&codDsp.length){
+      y+=1;
+      y=pdfGroupTitle(doc,y,_tl(leaM,leaM+trO)+' \u00b7 '+_fmt(kmU)+' km');
+    }
+    codDsp.forEach(function(c){
+      y=pdfCodeRow(doc,y,c.cod,c.lab,fmtH(c.v));
+    });
+    codDieta.forEach(function(c){
+      y=pdfCodeRow(doc,y,c.cod,c.lab,'\u00d7 '+Math.round(c.v));
     });
     y+=2;
     var hTotal=0;
-    codigos.forEach(function(c){ if(c.u==='h'&&(c.lab||'').indexOf('Dsp')===-1) hTotal+=c.v; });
+    codHoras.forEach(function(c){ hTotal+=c.v; });
     if(hTotal>0){ y=pdfTotalRow(doc,y,fmtH(hTotal)); y+=2; }
+  }
+
+  // Trabajadores
+  if(r.roles&&r.roles.length){
+    var noms=wNames&&wNames.length?wNames:r.roles;
+    var nomsStr=noms.filter(function(n){ return n&&n.trim(); }).join(' · ');
+    if(nomsStr){
+      y=pdfCheck(doc,y,8);
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      doc.setTextColor(_PDF.text2[0],_PDF.text2[1],_PDF.text2[2]);
+      doc.text(nomsStr,_PDF.mg+_PDF.cW/2,y+5,{align:'center'});
+      y+=10;
+    }
   }
 
   var mats=(r.materiales||[]).filter(function(m){return m.cantidad&&+m.cantidad>0;});
