@@ -4591,6 +4591,7 @@ function autorelleno_leerImagen(file){
 }
 
 
+function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function autorelleno_procesar(texto){
   // Usar la lógica existente de leer() pasando el texto al textarea oculto
   var raw = $('raw');
