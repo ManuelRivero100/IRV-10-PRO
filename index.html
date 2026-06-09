@@ -4593,19 +4593,29 @@ function autorelleno_leerImagen(file){
 
 function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function autorelleno_procesar(texto){
-  // Usar la lógica existente de leer() pasando el texto al textarea oculto
+  // Guardar texto para aplicar después del diálogo de inicio
+  window._pendingPDF = texto;
+  var raw = $('raw');
+  if(raw) raw.value = texto;
+  // Si el formulario ya está activo y sin diálogo, aplicar ahora
+  if($('dlgInicioOrden') && !$('dlgInicioOrden').classList.contains('show')){
+    _aplicarPDF(texto);
+  }
+  // Si no, se aplicará cuando el usuario elija en el diálogo
+}
+
+function _aplicarPDF(texto){
   var raw = $('raw');
   if(raw) raw.value = texto;
   leer();
-  // Mostrar resultado
+  window._pendingPDF = null;
   var status = $('autorelleno_status');
-  status.style.background = 'var(--green-light)';
-  status.style.color = 'var(--green)';
-  status.textContent = '✓ Datos extraídos. Revisa el formulario.';
-  setTimeout(function(){ 
-    if(status) status.style.display='none';
-    ocultarLectura();
-  }, 2000);
+  if(status){
+    status.style.background = 'var(--green-light)';
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ Datos extraídos. Revisa el formulario.';
+    setTimeout(function(){ status.style.display='none'; ocultarLectura(); }, 2000);
+  }
 }
 
 function autorelleno_mostrarError(msg){
@@ -4673,12 +4683,12 @@ function leer(){
     matsExtraidos.push({cod:'',nombre:mm[1].trim(),cantidad:cant});
   }
 
-  // Rellenar campos
-  if(pedido&&!$('pedido').value) $('pedido').value=pedido.trim();
-  if(centro&&!$('centro').value) $('centro').value=centro.trim();
-  if(tienda&&!$('tienda').value) $('tienda').value=tienda;
-  if(dir&&!$('dir').value) $('dir').value=dir;
-  if(tel&&!$('tel').value) $('tel').value=tel;
+  // Rellenar campos — el PDF sobreescribe siempre
+  if(pedido) $('pedido').value=pedido.trim();
+  if(centro) $('centro').value=centro.trim();
+  if(tienda) $('tienda').value=tienda;
+  if(dir) $('dir').value=dir;
+  if(tel) $('tel').value=tel;
 
   // Tipo de trabajo
   if(tipo){
@@ -4901,6 +4911,10 @@ function respInicioOrden(tipo){
     if(!esMerc&&!_pedidoNoMerc){
       _pedidoNoMerc=nextIRV();
       $('pedidoGenDisplay').textContent=_pedidoNoMerc;
+    }
+    // Aplicar PDF pendiente si hay uno
+    if(window._pendingPDF){
+      setTimeout(function(){ _aplicarPDF(window._pendingPDF); }, 200);
     }
   } else {
     // Mostrar lista si está oculta (sin órdenes activas → botón "Existente" no debería aparecer)
