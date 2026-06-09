@@ -4593,27 +4593,66 @@ function autorelleno_leerImagen(file){
 
 function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function autorelleno_procesar(texto){
-  // Guardar texto para aplicar después del diálogo de inicio
-  window._pendingPDF = texto;
-  var raw = $('raw');
-  if(raw) raw.value = texto;
-  // Si el formulario ya está activo y sin diálogo, aplicar ahora
-  if($('dlgInicioOrden') && !$('dlgInicioOrden').classList.contains('show')){
-    _aplicarPDF(texto);
+  var raw = $('raw'); if(raw) raw.value = texto;
+
+  // Extraer número de orden del PDF
+  var pedidoExtraido = null;
+  var m1 = texto.match(/PEDIDO DE SERVICIO\s+N[°º:]+\s*(\d+)/i)
+    || texto.match(/N[º°]\s*ORDEN[\s:]+(\d+)/i)
+    || texto.match(/^\s*N[ºo°]?\s*ORDEN\s+(\d+)/im);
+  if(m1) pedidoExtraido = m1[1].trim();
+
+  // Buscar el parte más reciente con ese número de orden en el historial
+  var idxEncontrado = -1;
+  if(pedidoExtraido){
+    var h = getH();
+    for(var i = h.length-1; i >= 0; i--){
+      var r = h[i];
+      if((r.clienteId||'mercadona') === (curCliente?curCliente.id:'mercadona')
+        && r.pedido === pedidoExtraido){
+        idxEncontrado = i;
+        break;
+      }
+    }
   }
-  // Si no, se aplicará cuando el usuario elija en el diálogo
+
+  var status = $('autorelleno_status');
+
+  if(idxEncontrado >= 0){
+    // Encontrado en historial — rellenar formulario igual que editar pero sin _editIdx
+    $('dlgInicioOrden').classList.remove('show');
+    abrirEdicionParte(idxEncontrado);
+    _editIdx = null; // No sobreescribir el original al guardar
+    if(status){
+      status.style.background = 'var(--green-light)';
+      status.style.color = 'var(--green)';
+      status.textContent = '✓ Formulario rellenado. Modifica lo que necesites antes de guardar.';
+      setTimeout(function(){ status.style.display='none'; ocultarLectura(); }, 3000);
+    }
+  } else {
+    // No está en historial — extraer lo que se pueda del texto
+    window._pendingPDF = texto;
+    if($('dlgInicioOrden') && !$('dlgInicioOrden').classList.contains('show')){
+      _aplicarPDF(texto);
+    }
+    if(status){
+      status.style.background = 'var(--amber-light)';
+      status.style.color = 'var(--amber)';
+      status.textContent = '⚠ Parte no encontrado en historial. Revisa los campos.';
+      setTimeout(function(){ status.style.display='none'; }, 3000);
+    }
+  }
 }
 
 function _aplicarPDF(texto){
-  var raw = $('raw');
-  if(raw) raw.value = texto;
+  var raw = $('raw'); if(raw) raw.value = texto;
   leer();
   window._pendingPDF = null;
   var status = $('autorelleno_status');
   if(status){
     status.style.background = 'var(--green-light)';
     status.style.color = 'var(--green)';
-    status.textContent = '✓ Datos extraídos. Revisa el formulario.';
+    status.textContent = '✓ Datos extraídos del PDF.';
     setTimeout(function(){ status.style.display='none'; ocultarLectura(); }, 2000);
   }
 }
@@ -4685,27 +4724,42 @@ function leer(){
 
   // Rellenar campos — el PDF sobreescribe siempre
   if(pedido) $('pedido').value=pedido.trim();
-  if(centro) $('centro').value=centro.trim();
-  if(tienda) $('tienda').value=tienda;
+  if(centro){ $('centro').value=centro.trim(); }
   if(dir) $('dir').value=dir;
   if(tel) $('tel').value=tel;
+  // Tienda al final para que no sea sobreescrita por autocompletado del historial
+  if(tienda){
+    setTimeout(function(){
+      $('tienda').value=tienda;
+      // Ocultar autocomplete si estuviera visible
+      var ac=$('acRef'); if(ac) ac.classList.remove('show');
+      var ac2=$('acCentro'); if(ac2) ac2.classList.remove('show');
+    }, 150);
+  }
 
   // Tipo de trabajo
+  var tipoNorm='';
   if(tipo){
     var t2=tipo.trim();
-    if(/climatiz/i.test(t2)) t2='Climatización';
-    else if(/conducto/i.test(t2)) t2='Conductos';
-    else if(/obra/i.test(t2)) t2='Obras';
-    else if(/electr/i.test(t2)) t2='Electricidad';
-    document.querySelectorAll('#jobTgl button').forEach(function(b){
-      if(b.textContent.trim()===t2) setJob(t2,b);
-    });
-  } else if(/conducto|ventilac/i.test(t)){
-    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Conductos') setJob('Conductos',b); });
-  } else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){
-    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Climatización') setJob('Climatización',b); });
-  } else if(/obra/i.test(t)){
-    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Obras') setJob('Obras',b); });
+    if(/climatiz/i.test(t2)) tipoNorm='Climatización';
+    else if(/conducto/i.test(t2)) tipoNorm='Conductos';
+    else if(/obra/i.test(t2)) tipoNorm='Obras';
+    else if(/electr/i.test(t2)) tipoNorm='Electricidad';
+  } else if(/conducto|ventilac/i.test(t)){ tipoNorm='Conductos'; }
+  else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){ tipoNorm='Climatización'; }
+  else if(/obra/i.test(t)){ tipoNorm='Obras'; }
+  if(tipoNorm){
+    // Intentar ahora, y también con delay por si el jobTgl no está listo
+    function _setTipo(){ document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent.trim()===tipoNorm) setJob(tipoNorm,b); }); }
+    _setTipo();
+    setTimeout(_setTipo, 300);
+  }
+
+  // Km desde códigos de facturación
+  var kmVal = cap(/Kmje\s+([\d.]+)\s*km/i,t);
+  if(kmVal){
+    $('km').value=kmVal;
+    $('kmE').value=kmVal;
   }
 
   // Cargar materiales en el sistema ms*
@@ -4914,8 +4968,9 @@ function respInicioOrden(tipo){
     }
     // Aplicar PDF pendiente si hay uno
     if(window._pendingPDF){
-      setTimeout(function(){ _aplicarPDF(window._pendingPDF); }, 200);
+      setTimeout(function(){ _aplicarPDF(window._pendingPDF); }, 400);
     }
+    // Si venía de PDF con historial, _editIdx ya fue puesto a null por autorelleno_procesar
   } else {
     // Mostrar lista si está oculta (sin órdenes activas → botón "Existente" no debería aparecer)
     var lista=$('dlgOrdenesActivas');
@@ -5191,7 +5246,11 @@ function _finalizarGuardado(estado){
     setTimeout(function(){ goTo('w-menu'); },1200);
     return;
   }
-  if(exists(r,h)){ showMsg('msgRes','Este parte ya est\u00e1 guardado.','warn'); return; }
+  // Detectar parte idéntico (misma fecha, orden, centro y cliente)
+  if(exists(r,h)){
+    showMsg('msgRes','⚠ Ya existe un parte con estos mismos datos. Si quieres modificar un parte anterior, edítalo desde el historial.','warn');
+    return;
+  }
   h.push(r); setH(h);
   showMsg('msgRes','Guardado correctamente.','success');
   $('gbtn').textContent='\u2713 Guardado'; $('gbtn').disabled=true; $('gbtn').style.opacity='.6';
