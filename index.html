@@ -4618,30 +4618,103 @@ function autorelleno_mostrarError(msg){
 
 function leer(){
   var t=$('raw').value; if(!t.trim()){ showMsg('msgForm','Pega el texto primero.','warn'); return; }
-  var pedido=cap(/PEDIDO DE SERVICIO\s+N[º°ª]?[:\s]+(\d+)/i,t)||cap(/(\d{6,})/,t);
-  var centro=cap(/N[º°ª]?\s*de\s*Centro[:\s]+(\d+)/i,t)||cap(/Centro[:\s-]+(\d+)/i,t);
-  var denom=cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t);
-  var tel=cap(/Tel[eé]fono[^:]*:\s*(\+?[\d][\d\s\-]{6,})/i,t);
-  var dir=''; var dm=t.match(/Direcci[oó]n[:\s]+([^\n]+)/i);
-  if(dm){ dir=dm[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim(); }
-  if(pedido&&!$('pedido').value) $('pedido').value=pedido.trim();
-  setTimeout(ocultarLectura, 600);
-  if(centro&&!$('centro').value) $('centro').value=centro.trim();
-  if(!$('tienda').value){
-    var dl=denom?denom.replace(/\s*(Direcci[oó]n|Tel[eé]fono|Calle|Avda|Plaza)[:\s].*/i,'').trim():'';
-    $('tienda').value=dl&&centro?'Mercadona '+dl+' '+centro.trim():dl?'Mercadona '+dl:centro?'Mercadona '+centro.trim():'';
+
+  // Nº orden
+  var pedido = cap(/PEDIDO DE SERVICIO\s+N[°º:]+\s*(\d+)/i,t)
+    || cap(/N[º°]\s*ORDEN[\s:]+(\d+)/i,t)
+    || cap(/^\s*N[ºo°]?\s*ORDEN\s+(\d+)/im,t)
+    || cap(/(\d{6,})/,t);
+
+  // Nº centro
+  var centro = cap(/N[°º]\s*de\s*Centro[:\s]+(\d+)/i,t)
+    || cap(/Centro[:\s:-]+(\d+)/i,t)
+    || cap(/\b(\d{4})\b/,t);
+
+  // Denominación / tienda
+  var denom = cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t)
+    || cap(/^TIENDA\s+(.+)$/im,t);
+  var tienda='';
+  if(denom){
+    var dn=denom.trim();
+    tienda=(dn.toLowerCase().indexOf('mercadona')===0)?dn:'Mercadona '+dn+(centro?' '+centro:'');
   }
+
+  // Dirección — usar la más larga (más completa)
+  var dir='';
+  var dirPatterns=[
+    /Direcci[oó]n[:\s]+([^\n]{10,})/i,
+    /^DIRECCI[OÓ]N\s+(.+)$/im,
+    /Direcci[oó]n[:\s]+([^\n]+)/i
+  ];
+  dirPatterns.forEach(function(p){
+    var m=t.match(p);
+    if(m){
+      var d=m[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim();
+      if(d.length>dir.length) dir=d;
+    }
+  });
+
+  // Teléfono
+  var tel = cap(/Tel[eé]fono\s+de\s+contacto[:\s]+(\+?[\d][\d\s]{6,})/i,t)
+    || cap(/^TEL[EÉ]FONO\s+(\d[\d\s]{6,})/im,t)
+    || cap(/Tel[eé]fono[:\s]+(\+?[\d][\d\s\-]{6,})/i,t);
+  if(tel) tel=tel.replace(/\s+/g,'').replace(/^\+34/,'');
+
+  // Tipo de trabajo
+  var tipo = cap(/Clasificaci[oó]n[:\s]+(Climatizaci[oó]n|Conductos|Obras|Electricidad)/i,t)
+    || cap(/^TIPO\s+(.+)$/im,t);
+
+  // Materiales — formato "MAT. Nombre xCantidad"
+  var matsExtraidos=[];
+  var matReg=/MAT\.\s+(.+?)\s+x([\d.]+)/gi;
+  var mm;
+  while((mm=matReg.exec(t))!==null){
+    var cant=parseFloat(mm[2]);
+    matsExtraidos.push({cod:'',nombre:mm[1].trim(),cantidad:cant});
+  }
+
+  // Rellenar campos
+  if(pedido&&!$('pedido').value) $('pedido').value=pedido.trim();
+  if(centro&&!$('centro').value) $('centro').value=centro.trim();
+  if(tienda&&!$('tienda').value) $('tienda').value=tienda;
   if(dir&&!$('dir').value) $('dir').value=dir;
-  if(tel&&!$('tel').value) $('tel').value=tel.replace(/\s+/g,'').trim();
-  if(/conducto|ventilac/i.test(t)){ var btns=document.querySelectorAll('#jobTgl button'); btns.forEach(function(b){ if(b.textContent==='Conductos') setJob('Conductos',b); }); }
-  else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){ var btns2=document.querySelectorAll('#jobTgl button'); btns2.forEach(function(b){ if(b.textContent==='Climatización') setJob('Climatización',b); }); }
-  else if(/obra/i.test(t)){ var btns3=document.querySelectorAll('#jobTgl button'); btns3.forEach(function(b){ if(b.textContent==='Obras') setJob('Obras',b); }); }
-  var n=[pedido,centro,denom,dir,tel].filter(Boolean).length;
-  showMsg('msgForm',n?n+' campo(s) autocompletados.':'No se encontraron datos.',n?'success':'warn');
+  if(tel&&!$('tel').value) $('tel').value=tel;
+
+  // Tipo de trabajo
+  if(tipo){
+    var t2=tipo.trim();
+    if(/climatiz/i.test(t2)) t2='Climatización';
+    else if(/conducto/i.test(t2)) t2='Conductos';
+    else if(/obra/i.test(t2)) t2='Obras';
+    else if(/electr/i.test(t2)) t2='Electricidad';
+    document.querySelectorAll('#jobTgl button').forEach(function(b){
+      if(b.textContent.trim()===t2) setJob(t2,b);
+    });
+  } else if(/conducto|ventilac/i.test(t)){
+    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Conductos') setJob('Conductos',b); });
+  } else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){
+    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Climatización') setJob('Climatización',b); });
+  } else if(/obra/i.test(t)){
+    document.querySelectorAll('#jobTgl button').forEach(function(b){ if(b.textContent==='Obras') setJob('Obras',b); });
+  }
+
+  // Cargar materiales en el sistema ms*
+  if(matsExtraidos.length>0){
+    setTimeout(function(){
+      msInitSel(matsExtraidos);
+      if(curJob) msRender('parteMatCard');
+      // Mostrar sección materiales
+      var cmfw=$('cardMatFormWrap'); if(cmfw) cmfw.style.display='block';
+      var cmf=$('cardMatForm'); if(cmf) cmf.style.display='block';
+      var bm=$('btnMateriales'); if(bm){ bm.style.background='var(--green-light)'; bm.style.borderColor='var(--green)'; bm.style.color='var(--green)'; }
+    }, 300);
+  }
+
+  setTimeout(ocultarLectura, 600);
+  var n=[pedido,centro,tienda,dir,tel].filter(Boolean).length+(matsExtraidos.length>0?1:0);
+  showMsg('msgForm',n?n+' campo(s) autocompletados'+(matsExtraidos.length?' + '+matsExtraidos.length+' material(es)':'')+'.'
+    :'No se encontraron datos.',n?'success':'warn');
 }
-
-// ===== HISTORIAL =====
-
 function renderSearchResults(){
   var q=($('busca')?($('busca').value||''):'').toLowerCase();
   var qf=$('buscaF')?($('buscaF').value||''):'';
