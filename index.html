@@ -4656,17 +4656,27 @@ function autorelleno_leerImagen(file){
 function autorelleno_procesar(texto){
   var status = $('autorelleno_status');
 
-  // Extraer campos del PDF
-  function capT(re){ var m=texto.match(re); return m?m[1].trim():null; }
+  // PDF.js puede devolver texto con saltos de línea o todo seguido
+  // Normalizar: insertar \n antes de etiquetas conocidas
+  var t2 = texto
+    .replace(/\s*(N[º°]\s*ORDEN)\s*/g, '\nNº ORDEN\n')
+    .replace(/\s*(TIENDA)\s*/g, '\nTIENDA\n')
+    .replace(/\s*(DIRECCI[OÓ]N)\s*/g, '\nDIRECCIÓN\n')
+    .replace(/\s*(TEL[EÉ]FONO)\s*/g, '\nTELÉFONO\n')
+    .replace(/\s*(LLEGADA)\s*/g, '\nLLEGADA\n')
+    .replace(/\s*(SALIDA)\s*/g, '\nSALIDA\n')
+    .replace(/\s*(TIPO)\s*/g, '\nTIPO\n');
 
-  var pedido  = capT(/N[\xba°]\s*ORDEN[\s\n]+([^\n]+)/i) || capT(/(\d{6,})/);
-  var tienda  = capT(/TIENDA[\s\n]+([^\n]+)/i);
-  var dir     = capT(/DIRECCI[O\xd3]N[\s\n]+([^\n]+)/i);
-  var tel     = capT(/TEL[E\xc9]FONO[\s\n]+([^\n]+)/i);
-  var arr     = capT(/LLEGADA[\s\n]+(\d{1,2}:\d{2})/i);
-  var lea     = capT(/SALIDA[\s\n]+(\d{1,2}:\d{2})/i);
-  var job     = capT(/TIPO[\s\n]+([^\n]+)/i);
-  var centro  = capT(/N[\xba°]\s*CENTRO[\s\n]+([^\n]+)/i);
+  function capT(re){ var m=t2.match(re); return m?m[1].trim():null; }
+
+  var pedido  = capT(/Nº ORDEN\n([^\n]+)/i) || texto.match(/(\d{6,})/)?texto.match(/(\d{6,})/)[1]:null;
+  var tienda  = capT(/TIENDA\n([^\n]+)/i);
+  var dir     = capT(/DIRECCIÓN\n([^\n]+)/i);
+  var tel     = capT(/TELÉFONO\n([^\n]+)/i);
+  var arr     = capT(/LLEGADA\n(\d{1,2}:\d{2})/i);
+  var lea     = capT(/SALIDA\n(\d{1,2}:\d{2})/i);
+  var job     = capT(/TIPO\n([^\n]+)/i);
+  var centro  = null;
   var kmMatch = texto.match(/·\s*([\d.]+)\s*KM/i);
   var kmVal   = kmMatch ? parseFloat(kmMatch[1]) : null;
   // tr: extraer minutos del tramo de ida desde la banda horaria
