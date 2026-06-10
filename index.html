@@ -4654,19 +4654,83 @@ function autorelleno_leerImagen(file){
 
 
 function autorelleno_procesar(texto){
-  // Usar la lógica existente de leer() pasando el texto al textarea oculto
-  var raw = $('raw');
-  if(raw) raw.value = texto;
-  leer();
-  // Mostrar resultado
   var status = $('autorelleno_status');
-  status.style.background = 'var(--green-light)';
-  status.style.color = 'var(--green)';
-  status.textContent = '✓ Datos extraídos. Revisa el formulario.';
-  setTimeout(function(){ 
-    if(status) status.style.display='none';
-    ocultarLectura();
-  }, 2000);
+
+  // Extraer campos del PDF
+  function capT(re){ var m=texto.match(re); return m?m[1].trim():null; }
+
+  var pedido  = capT(/N[\xba°]\s*ORDEN[\s\n]+([^\n]+)/i) || capT(/(\d{6,})/);
+  var tienda  = capT(/TIENDA[\s\n]+([^\n]+)/i);
+  var dir     = capT(/DIRECCI[O\xd3]N[\s\n]+([^\n]+)/i);
+  var tel     = capT(/TEL[E\xc9]FONO[\s\n]+([^\n]+)/i);
+  var arr     = capT(/LLEGADA[\s\n]+(\d{1,2}:\d{2})/i);
+  var lea     = capT(/SALIDA[\s\n]+(\d{1,2}:\d{2})/i);
+  var job     = capT(/TIPO[\s\n]+([^\n]+)/i);
+  var centro  = capT(/N[\xba°]\s*CENTRO[\s\n]+([^\n]+)/i);
+  var kmMatch = texto.match(/·\s*([\d.]+)\s*KM/i);
+  var kmVal   = kmMatch ? parseFloat(kmMatch[1]) : null;
+  // tr: extraer minutos del tramo de ida desde la banda horaria
+  // (HH:MM) - (HH:MM) · X KM  → diferencia en minutos
+  var trVal = null;
+  if(arr && kmMatch){
+    var bandaM = texto.match(/\((\d{1,2}:\d{2})\)\s*-\s*\((\d{1,2}:\d{2})\)\s*·/);
+    if(bandaM){
+      var t1=bandaM[1].split(':'); var t2=bandaM[2].split(':');
+      trVal = (parseInt(t2[0])*60+parseInt(t2[1])) - (parseInt(t1[0])*60+parseInt(t1[1]));
+      if(trVal<0) trVal+=1440;
+    }
+  }
+
+  // Materiales: MAT. Nombre xCantidad
+  var mats=[];
+  var matReg=/MAT\.\s+([^\n]+?)\s+x(\d+)/gi;
+  var mm;
+  while((mm=matReg.exec(texto))!==null){
+    mats.push({cod:'',nombre:mm[1].trim(),cantidad:parseInt(mm[2])});
+  }
+
+  // Rellenar formulario igual que abrirEdicionParte
+  nuevo();
+  _editIdx=null;
+
+  if(job){
+    document.querySelectorAll('#jobTgl button').forEach(function(b){
+      if(b.textContent.trim()===job.trim()) setJob(job.trim(),b);
+    });
+  }
+
+  var esMerc=curCliente&&curCliente.tipo==='mercadona';
+  if(pedido){
+    if(esMerc) $('pedido').value=pedido;
+    else { _pedidoNoMerc=pedido; $('pedidoGenDisplay').textContent=pedido; }
+  }
+  if(centro)  $('centro').value=centro;
+  if(tienda)  setTimeout(function(){ $('tienda').value=tienda; },150);
+  if(dir)     $('dir').value=dir;
+  if(tel)     $('tel').value=tel;
+  if(arr)     $('arr').value=arr;
+  if(lea)     $('lea').value=lea;
+  if(kmVal)   $('km').value=kmVal;
+  if(trVal)   $('tr').value=trVal;
+
+  if(mats.length){
+    msInitSel(mats);
+    if(curJob) msRender('parteMatCard');
+    var cmfw=$('cardMatFormWrap'); if(cmfw) cmfw.style.display='block';
+    var cmf=$('cardMatForm'); if(cmf) cmf.style.display='block';
+  }
+
+  renderWorkers();
+  ocultarLectura();
+  _keepForm=true;
+  goToRaw('w-form');
+
+  if(status){
+    status.style.background='var(--green-light)';
+    status.style.color='var(--green)';
+    status.textContent='\u2713 Formulario rellenado desde PDF.';
+    setTimeout(function(){ status.style.display='none'; },2500);
+  }
 }
 
 function autorelleno_mostrarError(msg){
@@ -4680,25 +4744,57 @@ function autorelleno_mostrarError(msg){
 function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function leer(){
   var t=$('raw').value; if(!t.trim()){ showMsg('msgForm','Pega el texto primero.','warn'); return; }
-  var pedido=cap(/PEDIDO DE SERVICIO\s+N[º°ª]?[:\s]+(\d+)/i,t)||cap(/(\d{6,})/,t);
-  var centro=cap(/N[º°ª]?\s*de\s*Centro[:\s]+(\d+)/i,t)||cap(/Centro[:\s-]+(\d+)/i,t);
-  var denom=cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t);
-  var tel=cap(/Tel[eé]fono[^:]*:\s*(\+?[\d][\d\s\-]{6,})/i,t);
-  var dir=''; var dm=t.match(/Direcci[oó]n[:\s]+([^\n]+)/i);
-  if(dm){ dir=dm[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim(); }
+
+  // Patrones PDF Mercadona (pedido de servicio)
+  var pedido = cap(/PEDIDO DE SERVICIO\s+N[º°ª]?[:\s]+(\d+)/i,t)
+    || cap(/N[\xba\xba°]\s*ORDEN[\s\n]+(\d+)/i,t)
+    || cap(/(\d{6,})/,t);
+
+  var centro = cap(/N[º°ª]?\s*de\s*Centro[:\s]+(\d+)/i,t)
+    || cap(/Centro[:\s-]+(\d+)/i,t);
+
+  // Patrones PDF IRV: ETIQUETA\nVALOR
+  var tiendaIRV = cap(/TIENDA[\s\n]+([^\n]+)/i,t);
+  var dirIRV    = cap(/DIRECCI[O\xd3]N[\s\n]+([^\n]+)/i,t);
+  var telIRV    = cap(/TEL[E\xc9]FONO[\s\n]+([^\n]+)/i,t);
+  var tipoIRV   = cap(/^TIPO[\s\n]+([^\n]+)/im,t);
+  var kmIRV     = cap(/·\s*([\d.]+)\s*KM/i,t);
+
+  // Patrones PDF Mercadona
+  var denom = cap(/Denominaci[oó]n[:\s]+([^\n]+)/i,t);
+  var tel   = telIRV || cap(/Tel[eé]fono[^:]*:\s*(\+?[\d][\d\s\-]{6,})/i,t);
+  var dir   = dirIRV || '';
+  if(!dir){
+    var dm=t.match(/Direcci[oó]n[:\s]+([^\n]+)/i);
+    if(dm) dir=dm[1].trim().replace(/\s+/g,' ').replace(/\s*(Persona|Tel[eé]fono|Contacto)[:\s].*/i,'').trim();
+  }
+
   if(pedido&&!$('pedido').value) $('pedido').value=pedido.trim();
   setTimeout(ocultarLectura, 600);
   if(centro&&!$('centro').value) $('centro').value=centro.trim();
   if(!$('tienda').value){
-    var dl=denom?denom.replace(/\s*(Direcci[oó]n|Tel[eé]fono|Calle|Avda|Plaza)[:\s].*/i,'').trim():'';
-    $('tienda').value=dl&&centro?'Mercadona '+dl+' '+centro.trim():dl?'Mercadona '+dl:centro?'Mercadona '+centro.trim():'';
+    if(tiendaIRV) $('tienda').value=tiendaIRV.trim();
+    else {
+      var dl=denom?denom.replace(/\s*(Direcci[oó]n|Tel[eé]fono|Calle|Avda|Plaza)[:\s].*/i,'').trim():'';
+      $('tienda').value=dl&&centro?'Mercadona '+dl+' '+centro.trim():dl?'Mercadona '+dl:centro?'Mercadona '+centro.trim():'';
+    }
   }
   if(dir&&!$('dir').value) $('dir').value=dir;
   if(tel&&!$('tel').value) $('tel').value=tel.replace(/\s+/g,'').trim();
-  if(/conducto|ventilac/i.test(t)){ var btns=document.querySelectorAll('#jobTgl button'); btns.forEach(function(b){ if(b.textContent==='Conductos') setJob('Conductos',b); }); }
-  else if(/climatizaci[oó]n|fuga|refriger/i.test(t)){ var btns2=document.querySelectorAll('#jobTgl button'); btns2.forEach(function(b){ if(b.textContent==='Climatización') setJob('Climatización',b); }); }
-  else if(/obra/i.test(t)){ var btns3=document.querySelectorAll('#jobTgl button'); btns3.forEach(function(b){ if(b.textContent==='Obras') setJob('Obras',b); }); }
-  var n=[pedido,centro,denom,dir,tel].filter(Boolean).length;
+  if(kmIRV&&!$('km').value) $('km').value=parseFloat(kmIRV);
+
+  // Tipo de trabajo
+  var tipoDetectado = tipoIRV
+    || (/conducto|ventilac/i.test(t)?'Conductos':null)
+    || (/climatizaci[oó]n|fuga|refriger/i.test(t)?'Climatización':null)
+    || (/obra/i.test(t)?'Obras':null);
+  if(tipoDetectado){
+    document.querySelectorAll('#jobTgl button').forEach(function(b){
+      if(b.textContent.trim()===tipoDetectado.trim()) setJob(tipoDetectado.trim(),b);
+    });
+  }
+
+  var n=[pedido,centro,tiendaIRV||denom,dir,tel].filter(Boolean).length;
   showMsg('msgForm',n?n+' campo(s) autocompletados.':'No se encontraron datos.',n?'success':'warn');
 }
 
