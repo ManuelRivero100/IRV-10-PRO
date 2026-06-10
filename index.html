@@ -2948,7 +2948,9 @@ function pdfDesde(r){
     var leaM=r.lea?parseInt(r.lea.split(':')[0])*60+parseInt(r.lea.split(':')[1]):0;
     var trI=r.tr||0;
     var trO=r.trS||r.tr||0;
-    var kmU=r.km||0;
+    // kmU = km de ida = total/2 (codKm guarda ida+vuelta)
+    var _codKmVal=codigos.filter(function(c){return c.u==='km';});
+    var kmU=_codKmVal.length?Math.round(_codKmVal[0].v/2):r.km||0;
 
     // Separar códigos por tipo
     var codKm=codigos.filter(function(c){ return c.u==='km'; });
