@@ -4601,7 +4601,7 @@ function autorelleno_leerPDF(file){
           return pdf.getPage(num).then(function(page){
             return page.getTextContent();
           }).then(function(content){
-            var str = content.items.map(function(item){ return item.str; }).join(' ');
+            var str = content.items.map(function(item){ return item.hasEOL ? item.str+'\n' : item.str+' '; }).join('');
             textos.push(str);
           });
         }
