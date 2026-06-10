@@ -4655,6 +4655,7 @@ function autorelleno_mostrarError(msg){
   status.textContent = '✗ '+msg;
 }
 
+function cap(re,t){ var m=t.match(re); return m?m[1]:null; }
 function leer(){
   var t=$('raw').value; if(!t.trim()){ showMsg('msgForm','Pega el texto primero.','warn'); return; }
   var pedido=cap(/PEDIDO DE SERVICIO\s+N[º°ª]?[:\s]+(\d+)/i,t)||cap(/(\d{6,})/,t);
