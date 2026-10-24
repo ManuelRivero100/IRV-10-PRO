@@ -24,7 +24,7 @@ function catNavRenderSecciones(g){
     pendientes.forEach(function(f){
       var secOpts='<option value="">Secci&oacute;n...</option>'+g.secciones.map(function(s,si){return '<option value="'+si+'">'+s.nombre+'</option>';}).join('');
       html+='<div style="background:var(--amber-light);border:1px solid var(--amber);border-radius:var(--r-sm);margin-bottom:8px;padding:12px 14px;">'
-        +'<div style="font-size:.9rem;font-weight:700;margin-bottom:2px;">'+f.nombre+'</div>'
+        +'<input id="matFlotNom_'+f.id+'" value="'+escHtml(f.nombre)+'" title="Puedes corregir el nombre antes de asignarlo" onchange="catEditarNombreMaterialFlotante(\''+f.id+'\',this)" style="width:100%;font-size:.9rem;font-weight:700;background:transparent;border:none;border-bottom:1px dashed var(--amber);border-radius:0;color:var(--text);font-family:inherit;padding:2px 0;margin-bottom:2px;">'
         +'<div style="font-size:.74rem;color:var(--text2);margin-bottom:8px;">A&ntilde;adido por '+(f.creadoPor||'')+' &middot; '+_fmtFechaHora(f.fecha)+'</div>'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +'<select id="matFlotSec_'+f.id+'" onchange="_matFlotSecCambiada(\''+f.id+'\')" style="flex:1;min-width:120px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.84rem;">'+secOpts+'</select>'
@@ -66,13 +66,17 @@ function catAsignarMaterialFlotante(flotId){
   if(!selSec||selSec.value===''){ showMsg('msgCat','Elige una secci&oacute;n primero.','error'); return; }
   var flotante=getMaterialesFlotantes().find(function(f){return f.id===flotId;});
   if(!flotante){ showMsg('msgCat','Este material ya no est&aacute; pendiente.','error'); return; }
+  // El nombre es el que haya escrito ahora en el campo, aunque todavía no se hubiera guardado la corrección
+  var inputNombre=$('matFlotNom_'+flotId);
+  var nombreFinal=inputNombre ? inputNombre.value.trim() : flotante.nombre;
+  if(!nombreFinal){ showMsg('msgCat','El nombre no puede quedar vac&iacute;o.','error'); return; }
   var si=parseInt(selSec.value);
   var ssi=(selSub && selSub.value!=='' && selSub.style.display!=='none') ? parseInt(selSub.value) : -1;
   _modificarCatalogoEnFirestore(function(cat){
     var g=cat.grupos.find(function(x){return x.id===_catNav.grupoId;});if(!g)return;
     var sec=g.secciones[si];if(!sec)return;
-    if(ssi===-1){ sec.mats=sec.mats||[];sec.mats.push({nom:flotante.nombre}); }
-    else { var ss=sec.subsecs[ssi];if(ss){ss.mats=ss.mats||[];ss.mats.push({nom:flotante.nombre});} }
+    if(ssi===-1){ sec.mats=sec.mats||[];sec.mats.push({nom:nombreFinal}); }
+    else { var ss=sec.subsecs[ssi];if(ss){ss.mats=ss.mats||[];ss.mats.push({nom:nombreFinal});} }
   }, function(exito){
     if(!exito){ showMsg('msgCat','No se pudo guardar. Comprueba tu conexi&oacute;n.','error'); return; }
     // Ya quedó asignado en el catálogo — ahora se retira de pendientes, tanto local como en
@@ -91,6 +95,24 @@ function catAsignarMaterialFlotante(flotId){
       showMsg('msgCat','Asignado, pero no se pudo limpiar el pendiente. Vuelve a intentarlo si sigue apareciendo.','error');
       catNavRender();
     });
+  });
+}
+
+// Corrige el nombre de un material flotante pendiente (el campo del nombre es editable). Se guarda al salir del campo.
+function catEditarNombreMaterialFlotante(flotId, input){
+  var lista=getMaterialesFlotantes();
+  var f=lista.find(function(x){return x.id===flotId;});
+  if(!f) return;
+  var nombre=input.value.trim();
+  if(!nombre){ input.value=f.nombre; showMsg('msgCat','El nombre no puede quedar vac&iacute;o.','error'); return; }
+  if(nombre===f.nombre) return;
+  _db.collection('materialesFlotantes').doc(flotId).update({nombre:nombre}).then(function(){
+    f.nombre=nombre;
+    setMaterialesFlotantes(lista);
+    showMsg('msgCat','Nombre actualizado.','success');
+  }).catch(function(){
+    input.value=f.nombre;
+    showMsg('msgCat','No se pudo guardar el nombre. Comprueba tu conexi&oacute;n.','error');
   });
 }
 
