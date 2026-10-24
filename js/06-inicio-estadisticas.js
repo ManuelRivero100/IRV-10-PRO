@@ -30,11 +30,11 @@ var _statsVista = 'concepto';
 function fmtHStats(h){
   if(!h) return '-';
   var w=Math.floor(h); var d=Math.round((h-w)*4)/4;
-  if(d===0) return w+'h';
-  if(d===0.25) return w+'h 1/4';
-  if(d===0.5) return w+'h 1/2';
-  if(d===0.75) return w+'h 3/4';
-  return h+'h';
+  if(d===0) return w+' h';
+  if(d===0.25) return w+' h 1/4';
+  if(d===0.5) return w+' h 1/2';
+  if(d===0.75) return w+' h 3/4';
+  return h+' h';
 }
 
 function statsRenderTecnicos(datos){
@@ -221,7 +221,7 @@ function statsActualizar(){
     });
     var nc=Object.keys(cAct).length;
     if(nc>0){
-      if(bannerTxt) bannerTxt.textContent=nc+' centro'+(nc>1?'s':'')+' en ejecuci\u00f3n \u00b7 '+statsFmtH(hAct).replace(/^(\d+)h/,'$1 h')+' \u00b7 '+Math.round(kAct)+' km pendientes de cierre';
+      if(bannerTxt) bannerTxt.textContent=nc+' centro'+(nc>1?'s':'')+' en ejecuci\u00f3n \u00b7 '+statsFmtH(hAct)+' \u00b7 '+Math.round(kAct)+' km pendientes de cierre';
       if(banner) banner.style.display='block';
     } else { if(banner) banner.style.display='none'; }
   } else { if(banner) banner.style.display='none'; }
@@ -261,8 +261,8 @@ function statsRenderKPIs(datos){
 function statsFmtH(v){
   var h=Math.floor(v),dec=Math.round((v-h)*4)/4;
   var f=dec===0.25?'1/4':dec===0.5?'1/2':dec===0.75?'3/4':'';
-  if(f) return h?h+'h '+f:f+'h';
-  return h+'h';
+  if(f) return h?h+' h '+f:f+' h';
+  return h+' h';
 }
 
 function statsRenderResumen(datos){
