@@ -70,6 +70,11 @@ function _iniciarPresentacionLogin(nombre){
   localStorage.setItem(ULTIMA_VERIFICACION_KEY, hoy);
   _loginSplashListo = false;
   iniciarSplash(function(){ _loginSplashListo = true; _retirarPresentacionSiEligeRol(); });
+  _sincronizarAlEntrar();
+}
+
+// Sincronizaciones que no dependen del rol final; se lanzan al entrar con PIN y también al recuperar una sesión guardada
+function _sincronizarAlEntrar(){
   _sincronizarClientesDesdeFirestore();
   _sincronizarTecnicosDesdeFirestore();
   _sincronizarCatalogoDesdeFirestore();
@@ -854,7 +859,7 @@ function eliminarIncidencia(id) {
 // ejecutarAsgTec y _asgTecActual movidos arriba, al bloque de script correcto, antes de su primer uso)
 
 function cerrarSesion() {
-  try { localStorage.removeItem('irv_sesion'); } catch(e) { _fallo('cerrarSesion')(e); }
+  try { localStorage.removeItem('irv_sesion'); localStorage.removeItem('irv_pantalla'); } catch(e) { _fallo('cerrarSesion')(e); }
   location.reload();
 }
 

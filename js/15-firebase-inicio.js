@@ -20,30 +20,3 @@ var _authReady = new Promise(function(resolve){
   var dejarDeEscuchar = firebase.auth().onAuthStateChanged(function(){ dejarDeEscuchar(); resolve(); });
 });
 
-// Si hay una sesión guardada de una vez anterior, entrar directamente sin pedir PIN otra
-// vez — así la app sobrevive a que el móvil descargue la pestaña de memoria al salir a
-// otra app. Se mantiene indefinidamente hasta el reinicio diario de las 6am o un cierre
-// de sesión manual (los dos ya borran esta misma clave, sin cambios necesarios en ellos).
-// Espera a _authReady para que Firestore esté listo antes de sincronizar nada.
-_authReady.then(function(){
-  try {
-    var _sesionGuardada = JSON.parse(localStorage.getItem('irv_sesion') || 'null');
-    if (!_sesionGuardada || !_sesionGuardada.nombre || !_sesionGuardada.rol) return;
-    // Sin la sesión de Firebase de este dispositivo no hay acceso a los datos: se pide el PIN otra vez
-    if (!firebase.auth().currentUser) return;
-    // Si ya tocan las 6am de un día no marcado todavía, no restaurar — dejar ver el login
-    // normal, que al escribir el PIN disparará el ciclo de reinicio de siempre sin haber
-    // malgastado sincronizaciones que se cancelarían de inmediato al recargar
-    var ahora = new Date();
-    var hoy = ahora.toISOString().slice(0,10);
-    var ultimoDiaActivo = localStorage.getItem('pm_ultimo_dia_activo');
-    if (ultimoDiaActivo !== hoy && ahora.getHours() >= 6) {
-      localStorage.setItem('pm_ultimo_dia_activo', hoy);
-      try { localStorage.removeItem('irv_sesion'); } catch(e) { _fallo('iniciarSplash #1')(e); }
-      return;
-    }
-    _iniciarPresentacionLogin(_sesionGuardada.nombre);
-    _aplicarSesion(_sesionGuardada.nombre, _sesionGuardada.rol, !!_sesionGuardada.multiRol);
-  } catch(e) { _fallo('iniciarSplash #2')(e); }
-});
-

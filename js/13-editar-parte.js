@@ -134,7 +134,10 @@ function setTodosEnlazan(v,btn){
 // ===== TRABAJADORES =====
 var wRoles=[],wNames=[];
 
+// Índice del parte que se está viendo en el histórico (lo usa la recuperación de pantalla al volver a la app)
+var _parteIdxActual=null;
 function verParte(idx){
+  _parteIdxActual=idx;
   $('ordenView').style.display='none'; $('parteView').style.display='block';
   var all=getH(); var r=all[idx]; if(!r) return;
   var fF=r.fecha?r.fecha.split('-').reverse().join('/'):'--';

@@ -249,6 +249,7 @@ textarea{resize:vertical;min-height:72px}
 /* ── SPLASH ── */
 * { margin:0; padding:0; box-sizing:border-box; }
 /* body base — sin cambios desde splash */
+html.recuperando #w-login, html.recuperando #splash { display: none !important; }
 #splash {
   position: fixed;
   inset: 0;
