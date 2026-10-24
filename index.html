@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<meta charset="utf-8">
+  <link rel="manifest" href="manifest.json">
+<script src="js/00-manifest.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+  <meta name="theme-color" content="#2d9e5f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Partes IRV-10">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=yes">
+<title>Partes IRV-10</title>
+<link rel="stylesheet" href="css/estilos.css?v=build-2026-10-24-v3-acceso-seguro">
+</head>
+<body>
+<!-- PANTALLA LOGIN -->
+<div id="w-login" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:340px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:2.5rem;margin-bottom:8px;">🔧</div>
+      <div style="font-size:1.3rem;font-weight:700;color:var(--text);">Partes IRV-10</div>
+      <div style="font-size:.82rem;color:var(--text2);margin-top:4px;">Soluciones a tu Medida</div>
+    </div>
+    <div id="loginForm">
+      <div class="field" style="margin-bottom:14px;">
+        <label>Nombre</label>
+        <input id="loginNombre" placeholder="Tu nombre completo" autocomplete="off" style="font-size:1rem;" onkeydown="if(event.key==='Enter')document.getElementById('loginPin').focus()">
+      </div>
+      <div class="field" style="margin-bottom:20px;">
+        <label>PIN</label>
+        <input id="loginPin" type="password" inputmode="numeric" maxlength="4" placeholder="4 dígitos" style="font-size:1.4rem;letter-spacing:.4em;text-align:center;" onkeydown="if(event.key==='Enter')_iniciarSesion()">
+      </div>
+      <button class="btn btn-p btn-full" onclick="_iniciarSesion()" style="padding:13px;font-size:1rem;">Entrar</button>
+      <div id="loginMsg" style="margin-top:12px;text-align:center;font-size:.85rem;color:var(--red);min-height:20px;"></div>
+    </div>
+    <div id="loginRolSel" style="display:none;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:.85rem;color:var(--text2);">Bienvenido,</div>
+        <div id="loginRolNombre" style="font-size:1.1rem;font-weight:700;color:var(--text);margin-top:4px;"></div>
+      </div>
+      <div id="loginRolBtns"></div>
+    </div>
+    <div id="loginSinConexion" style="display:none;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:12px;">&#128225;</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:8px;">Sin conexión</div>
+      <div style="font-size:.85rem;color:var(--text2);margin-bottom:20px;">Sin conexión a internet. Para trabajar como administrador necesitas conexión. Puedes continuar como técnico.</div>
+      <button class="btn btn-p btn-full" onclick="_loginSinConexionContinuar()" style="margin-bottom:10px;">&#128295; Continuar como tecnico</button>
+      <button class="btn btn-s btn-full" onclick="document.getElementById('loginSinConexion').style.display='none';document.getElementById('loginForm').style.display='block';">&#10005; Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="splash" onclick="this.style.pointerEvents='none';document.body.style.overflow='';this.classList.add('fade-out');var s=this;setTimeout(function(){if(s)s.style.display='none';},600);">
+  <div id="coin-wrap">
+    <div id="coin"></div>
+  </div>
+  <div id="splash-texts">
+    <div class="splash-line" id="txt-irv">IRV</div>
+    <div class="splash-line" id="txt-sol">Soluciones</div>
+    <div class="splash-line" id="txt-med">A tu Medida</div>
+  </div>
+  <div id="splash-sync-msg" style="display:none;position:absolute;bottom:12%;left:0;right:0;text-align:center;color:#fff;font-size:.85rem;font-family:sans-serif;opacity:.9;letter-spacing:.02em;">&#128260; Sincronizando datos del d&iacute;a&hellip;</div>
+</div>
+
+<div class="app" style="display:none;"><div class="hdr">
+  <div class="hdr-ico">&#127978;</div>
+  <div><h1>Partes IRV-10</h1><p id="hdr-sub">Selecciona un cliente</p></div>
+  <button id="btnCambiarRol" style="display:none;margin-left:auto;padding:6px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.75rem;font-family:inherit;cursor:pointer;" onclick="pedirPinCambioRol()">&#8645; Rol</button>
+  <button style="margin-left:8px;padding:6px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.75rem;font-family:inherit;cursor:pointer;" onclick="cerrarSesion()">&#128275; Salir</button>
+</div>
+<div id="w-clientes" class="win active">
+  <div class="section-label">Clientes</div>
+  <div id="clientesGrid" class="app-grid"></div>
+  <div class="section-label">Herramientas</div>
+  <div class="app-grid">
+    <div class="app-icon" id="iconCatalogo" onclick="abrirCatalogo()" style="position:relative;">
+      <div class="app-icon-img ico-catalogo">&#128218;</div>
+      <span data-cat-badge style="display:none;position:absolute;top:-4px;right:2px;background:#f59e0b;color:#fff;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:20px;min-width:18px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.3);">0</span>
+      <span class="app-icon-label">Cat&aacute;logo</span>
+    </div>
+    <div class="app-icon" onclick="goTo('w-stats')">
+      <div class="app-icon-img ico-stats">&#128202;</div>
+      <span class="app-icon-label">Estad&iacute;sticas</span>
+    </div>
+    <div class="app-icon" onclick="abrirHoras()">
+      <div class="app-icon-img ico-other">&#9201;&#65039;</div>
+      <span class="app-icon-label">Registro de horario</span>
+    </div>
+    <div class="app-icon" id="iconPapelera" style="display:none;" onclick="abrirPapelera()">
+      <div class="app-icon-img ico-other">&#128465;</div>
+      <span class="app-icon-label">Papelera</span>
+    </div>
+  </div>
+  <div id="asgTecSection" style="display:none;margin-top:14px;">
+    <div class="section-label">&#128229; Incidencias asignadas</div>
+    <div id="asgTecLista"></div>
+  </div>
+  <div id="asgAdminSection" style="display:none;margin-top:14px;">
+    <div class="section-label">&#128229; Notificaciones pendientes</div>
+    <div id="asgAdminLista"></div>
+  </div>
+</div>
+<div id="w-catalogo" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="cat-tabs">
+    <button class="cat-tab active" onclick="catTab('materiales',this)">&#128295; Materiales<span id="catMatFlotanteBadge" style="display:none;background:var(--amber);color:#fff;font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;">0</span></button>
+    <button class="cat-tab" onclick="catTab('conceptos',this)">&#9201; Conceptos</button>
+    <button class="cat-tab" onclick="catTab('tecnicos',this)">&#128119; T&eacute;cnicos</button>
+    <button class="cat-tab" onclick="catTab('agenda',this)">&#128220; Agenda<span id="catAgendaBadge" style="display:none;background:var(--amber);color:#fff;font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;">0</span></button>
+  </div>
+  <div id="catTabMat">
+    <div id="catFamiliasList"></div>
+
+  </div>
+  <div id="catTabAgenda" style="display:none">
+    <div style="font-size:.78rem;color:var(--text2);margin-bottom:12px;padding:8px 12px;background:var(--amber-light);border-radius:var(--r-sm);">&#9432; Sitios nuevos a&ntilde;adidos por t&eacute;cnicos, pendientes de revisar.</div>
+    <div id="catAgendaList"></div>
+  </div>
+  <div id="catTabTec" style="display:none">
+    <div id="catTecnicosList"></div>
+    <div class="card" style="margin-top:10px;">
+      <div class="card-title">&#43; Nuevo t&eacute;cnico</div>
+      <div class="field"><label>Nombre</label><input id="tec-nombre" placeholder="Ej: Manuel"></div>
+      <div class="field"><label>Tel&eacute;fono</label><input id="tec-tel" placeholder="Ej: 666123456" type="tel"></div>
+      <div class="field"><label>PIN (4 d&iacute;gitos)</label><input id="tec-pin" type="text" inputmode="numeric" maxlength="4" placeholder="Ej: 1234" style="letter-spacing:.2em;"></div>
+      <div class="field"><label>Tipo de trabajo</label>
+        <div id="tec-jobs-tgl" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          <button onclick="tecToggleJob('Climatización',this)" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.8rem;font-family:inherit;cursor:pointer;">Climatización</button>
+          <button onclick="tecToggleJob('Conductos',this)" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.8rem;font-family:inherit;cursor:pointer;">Conductos</button>
+          <button onclick="tecToggleJob('Obras',this)" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.8rem;font-family:inherit;cursor:pointer;">Obras</button>
+          <button onclick="tecToggleJob('Electricidad',this)" style="padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.8rem;font-family:inherit;cursor:pointer;">Electricidad</button>
+        </div>
+      </div>
+      <div class="brow"><button class="btn btn-p btn-sm" onclick="tecGuardar()">&#128190; Guardar t&eacute;cnico</button></div>
+      <div id="msgTec" class="msg"></div>
+    </div>
+  </div>
+  <div id="catTabConc" style="display:none">
+    <div style="font-size:.78rem;color:var(--text2);margin-bottom:12px;padding:8px 12px;background:var(--amber-light);border-radius:var(--r-sm);">&#9432; Los precios solo se aplican en clientes <strong>con precio</strong>.</div>
+    <div id="catConceptosList"></div>
+    <div class="brow" style="margin-top:10px;"><button class="btn btn-p btn-sm" onclick="catGuardarConceptos()">&#128190; Guardar precios</button></div>
+  </div>
+  <div id="catFamiliaView" style="display:none">
+  <div id="catNavContainer"></div>
+</div>
+</div>
+<div id="w-nuevo-cliente" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div class="card">
+    <div class="card-title">&#43; Nuevo cliente</div>
+    <div class="field"><label>Nombre <span class="req">*</span></label><input id="nc-nombre" placeholder="Ej: Construcciones García"></div>
+    <div class="field"><label>Tipo <span class="req">*</span></label>
+      <div class="tgl" id="nc-tipo-tgl">
+        <button onclick="setNcTipo('fijo',this)" class="active">Sin precio</button>
+        <button onclick="setNcTipo('particular',this)">Con precio</button>
+      </div>
+      <input type="hidden" id="nc-tipo" value="fijo">
+    </div>
+    <div class="field"><label>Asignación</label>
+      <button type="button" id="nc-asig" class="btn btn-p btn-full" onclick="ncToggleAsig()">Con asignación</button>
+      <div id="nc-asig-info" style="font-size:.78rem;color:var(--text2);margin-top:5px;">Solo el técnico asignado a la incidencia puede continuarla.</div>
+    </div>
+    <div class="field"><label>Tipos de trabajo (separados por coma)</label><input id="nc-jobs" placeholder="Climatización, Instalación eléctrica, Reformas"></div>
+    <div class="msg" id="msgNc"></div>
+    <div class="brow"><button class="btn btn-p btn-full" onclick="guardarNuevoCliente()">&#128190; Crear cliente</button></div>
+  </div>
+</div>
+<div id="w-menu" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div id="menuGrid" class="app-grid"></div>
+</div>
+<div id="w-asignar" class="win">
+  <button class="back" onclick="goTo('w-menu')">&#8592; Men&uacute; principal</button>
+  <button class="btn btn-p btn-full" style="margin-bottom:10px;" onclick="toggleCard('cardCrearAsg',this)">&#10133; Crear asignaci&oacute;n</button>
+  <div class="card" id="cardCrearAsg" style="display:none">
+    <div class="card-title">&#128229; Asignar incidencia</div>
+    <div class="field"><label>Pegar texto de la orden</label><textarea id="asgRaw" rows="5" placeholder="Pega aqu&iacute; el texto de la orden&hellip;"></textarea></div>
+    <div class="brow"><button class="btn btn-p" onclick="leerAsg()">&#128269; Autocompletar</button><button class="btn btn-s" onclick="$('asgRaw').value=''">&#128465;&#65039; Limpiar</button></div>
+    <div class="field" style="margin-top:10px;"><label id="asgLabelPedido">N&ordm; orden</label><input id="asgPedido" inputmode="numeric" placeholder="Ej: 119137"></div>
+    <div class="field" id="asgFieldCentro"><label>N&ordm; centro</label><input id="asgCentro" inputmode="numeric" placeholder="Ej: 2721" oninput="buscarKmAsg(this.value)"></div>
+    <div class="field"><label>Tienda <span class="req">*</span></label><input id="asgTienda" placeholder="Mercadona SAN JAVIER 2721"></div>
+    <div class="field"><label>Direcci&oacute;n <span class="req">*</span></label><input id="asgDir"></div>
+    <div class="field"><label>Tel&eacute;fono <span class="req">*</span></label><input id="asgTel" type="tel" inputmode="numeric"></div>
+    <div class="field"><label>Km (opcional)</label><input id="asgKm" type="number" inputmode="decimal" placeholder="Ej: 35"></div>
+    <div class="field"><label>Desplazamiento min. (opcional)</label><input id="asgTr" type="number" inputmode="numeric" placeholder="Ej: 40"></div>
+    <div class="field"><label>Descripci&oacute;n de la aver&iacute;a (opcional)</label><textarea id="asgDescripcion" rows="3" placeholder="Ej: Fricooling descolgado, no funciona&hellip;"></textarea></div>
+    <div class="field"><label>Tipo de trabajo <span class="req">*</span></label>
+      <div class="tgl" id="asgJobTgl"></div>
+    </div>
+    <div class="field"><label>T&eacute;cnico principal <span class="req">*</span></label>
+      <div class="tgl" id="asgTecTgl"></div>
+    </div>
+    <div class="brow"><button class="btn btn-p btn-full" onclick="guardarAsignacion()">&#128190; Asignar</button></div>
+    <div id="asgMsg" class="msg"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">&#128203; Incidencias asignadas</div>
+    <div id="asgLista" style="margin-top:8px;"></div>
+  </div>
+</div>
+<div id="w-form" class="win">
+  <button class="back" onclick="_asgTecActual?(_asgTecActual=null,goTo('w-clientes')):goTo('w-menu')">&#8592; Men&uacute; principal</button>
+  <button class="btn btn-s btn-full" style="margin-bottom:10px;" onclick="toggleCard('cardLectura',this)">&#128196; Auto-relleno</button>
+  <div class="card" id="cardLectura" style="display:none"><div class="card-title">&#128196; Lectura de orden</div>
+    <div class="field"><label>Pegar texto de la orden</label><textarea id="raw" rows="5" placeholder="Pega aqu&iacute; el texto de la orden&hellip;"></textarea></div>
+    <div class="brow"><button class="btn btn-p" onclick="leer()">&#128269; Autocompletar</button><button class="btn btn-s" onclick="$('raw').value=''">&#128465;&#65039; Limpiar</button></div>
+  </div>
+  <div class="card"><div class="card-title">&#128295; Tipo de trabajo</div>
+    <div class="field"><label>Selecciona <span class="req">*</span></label>
+      <div class="tgl" id="jobTgl"></div>
+      <input type="hidden" id="job">
+    </div>
+  </div>
+  <div class="card"><div class="card-title">&#128203; Datos de la orden</div>
+    <div class="g2">
+      <div class="field"><label>Fecha <span class="req">*</span></label><input id="fecha" type="date" onchange="onFechaChange()"></div>
+      <div class="field"><label>Tipo de d&iacute;a</label>
+        <div class="tgl tgl-festivo" id="festivoTgl">
+          <button class="active" onclick="setFestivo(false,this)">Normal</button>
+          <button onclick="setFestivo(true,this)">Festivo</button>
+        </div>
+      </div>
+    </div>
+    <div class="field" id="fieldPedido">
+      <label id="labelPedido">N&ordm; orden <span class="req">*</span></label>
+      <div id="pedidoGenDisplay" style="display:none;padding:8px 12px;background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--r-sm);font-family:monospace;font-size:.9rem;font-weight:700;color:var(--green);"></div>
+      <input id="pedido" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 119137" oninput="buscarPorOrden(this.value);if(this.value.length>3)ocultarLectura()">
+      <div class="ac-box" id="acOrden"></div>
+    </div>
+    <div class="field">
+      <label>N&ordm; parte <span class="req">*</span></label>
+      <input id="numParte" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 0391">
+      <div id="msgNumParte" class="msg" style="display:none"></div>
+    </div>
+    <div class="field" id="fieldActObras" style="display:none">
+      <label>Actuaci&oacute;n</label>
+      <div id="actObrasDisplay" style="padding:8px 12px;background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--r-sm);font-family:monospace;font-size:.9rem;font-weight:700;color:var(--green);display:none"></div>
+      <div style="font-size:.76rem;color:var(--text2);margin-top:4px;" id="actObrasHint">Se asignará al generar el parte.</div>
+    </div>
+    <div class="field" id="fieldCentro">
+      <label id="labelCentro">N&ordm; centro</label>
+      <input id="centro" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 2721" oninput="buscarPorCentroORef(this.value);if(this.value.length>2)ocultarLectura();checkAutoEnlace()">
+      <div class="ac-box" id="acCentro"></div>
+    </div>
+    <div class="field"><label id="labelTienda">Tienda <span class="req">*</span></label><input id="tienda" placeholder="Mercadona SAN JAVIER 2721" oninput="buscarRefNoMerc(this.value)" autocomplete="off"><div class="ac-box" id="acRef"></div></div>
+    <div class="field"><label>Direcci&oacute;n <span class="req">*</span></label><input id="dir"></div>
+    <div class="field"><label>Tel&eacute;fono <span class="req">*</span></label><input id="tel" type="tel" inputmode="numeric"></div>
+  </div>
+  <div class="card"><div class="card-title">&#128506;&#65039; Trayectoria</div>
+    <div class="field"><label>Origen</label>
+      <div class="tgl" id="origTgl">
+        <button class="active" onclick="setOrigen('nave',this)">Desde la nave</button>
+        <button onclick="setOrigen('otro',this)">Otro punto</button>
+      </div>
+      <input type="hidden" id="origen" value="nave">
+    </div>
+    <div id="modeNave">
+    <div id="lnkToggleDiv" class="field"><label>Tipo</label>
+      <div class="tgl" id="lnkTgl">
+        <button class="active" onclick="setLink('No',this)">Sin enlace</button>
+        <button onclick="setLink('Si',this)">Con enlace</button>
+      </div>
+      <input type="hidden" id="link" value="No">
+    </div>
+    <div id="abn" class="abn"><span>&#128279;</span><span id="abnTxt"></span></div>
+    <div id="modeNo">
+      <div class="g2">
+        <div class="field"><label>N&ordm; de coches</label><input id="ncoches" type="number" min="1" value="1" placeholder="1" oninput="_actualizarTodosEnlazanVisibilidad()" onfocus="this.select()"></div>
+        <div class="field"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Km adicionales</label><input id="kmAdicionales" type="number" min="0" placeholder="0"></div>
+        <div class="field"></div>
+      </div>
+      <div class="field"><label>Justificaci&oacute;n km adicionales</label><textarea id="kmAdicionalesJust" placeholder="Ej: 50 km adicionales por b&uacute;squeda de material en almac&eacute;n de Torre Pacheco"></textarea></div>
+      <div class="g2">
+        <div class="field"><label>Km ida</label><input id="km" type="number" min="0" placeholder="km"></div>
+        <div class="field"><label>Despl. ida (min)</label><input id="tr" type="number" min="0" placeholder="min"></div>
+      </div>
+    </div>
+    <div id="modeSi" style="display:none">
+      <div class="g2">
+        <div class="field"><label>Km entrada</label><input id="kmE" type="number" min="0" placeholder="km"></div>
+        <div class="field"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Despl. entrada (min)</label><input id="trE" type="number" min="0" placeholder="min"></div>
+        <div class="field"></div>
+      </div>
+      <div class="field"><label>N&ordm; tienda destino</label><input id="enlaceDestinoCentro" placeholder="Ej: 2721" onblur="buscarEnlacePar()"></div>
+      <div class="field"><label>Tienda destino</label><input id="enlaceDestino" placeholder="Nombre de la tienda destino"></div>
+      <div class="g2">
+        <div class="field"><label>Km salida</label><input id="kmS" type="number" min="0" placeholder="km"></div>
+        <div class="field"><label>Despl. salida (min)</label><input id="trS" type="number" min="0" placeholder="min"></div>
+      </div>
+      <div class="field" id="todosEnlazanField" style="display:none"><label>&iquest;Todos los coches enlazan?</label>
+        <div class="tgl" id="todosEnlazanTgl">
+          <button class="active" onclick="setTodosEnlazan(true,this)">S&iacute;</button>
+          <button onclick="setTodosEnlazan(false,this)">No</button>
+        </div>
+        <input type="hidden" id="todosEnlazan" value="Si">
+      </div>
+    </div>
+    <div id="modeAuto" style="display:none">
+      <div class="g2">
+        <div class="field"><label>Km salida</label><input id="kmA" type="number" min="0" placeholder="km"></div>
+        <div class="field"><label>Despl. salida (min)</label><input id="trA" type="number" min="0" placeholder="min"></div>
+      </div>
+    </div>
+    </div>
+    <div id="modeOtroPunto" style="display:none">
+      <div class="field"><label>Partida desde</label><input id="otroPartidaDesde" placeholder="Ej: Hotel en Almer&iacute;a"></div>
+      <div class="g2">
+        <div class="field"><label>Km ida</label><input id="kmOtroIda" type="number" min="0" placeholder="km"></div>
+        <div class="field"><label>Despl. ida (min)</label><input id="trOtroIda" type="number" min="0" placeholder="min"></div>
+      </div>
+      <div class="field"><label>Llegada hacia</label><input id="otroLlegadaHacia" placeholder="Ej: Regreso a Almer&iacute;a"></div>
+      <div class="g2">
+        <div class="field"><label>Km vuelta</label><input id="kmOtroVuelta" type="number" min="0" placeholder="km"></div>
+        <div class="field"><label>Despl. vuelta (min)</label><input id="trOtroVuelta" type="number" min="0" placeholder="min"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">&#9201;&#65039; Horario</div>
+    <div class="g2">
+      <div class="field"><label>Llegada <span class="req">*</span></label><input id="arr" type="time" onchange="checkAutoEnlace()"></div>
+      <div class="field"><label>Salida <span class="req">*</span></label><input id="lea" type="time"></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">&#128119; Trabajadores</div>
+    <div class="field"><label>Cantidad <span class="req">*</span></label><input id="w" type="number" min="1" max="4" placeholder="Nº de trabajadores" onchange="renderWorkers()" onfocus="if(this.value=='2')this.value=''" onblur="if(!this.value)this.value='2'"></div>
+    <div id="workersRol" style="display:none"><div id="workersList"></div></div>
+  </div>
+  <div id="cardMatFormWrap" style="display:none">
+    <button class="btn btn-s btn-full" style="margin-bottom:10px;" id="btnMateriales" onclick="toggleCard('cardMatForm',this)">&#128230; Materiales</button>
+    <div class="card" id="cardMatForm" style="display:none">
+      <div class="card-title">&#128230; Materiales utilizados</div>
+      <div id="obrasMatTipoTgl" class="tgl" style="display:none;margin-bottom:10px;">
+        <button onclick="setObrasMatTipo('Climatización',this)">Climatización</button>
+        <button onclick="setObrasMatTipo('Conductos',this)">Conductos</button>
+      </div>
+      <div id="parteMatCard"></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">&#128221; Observaciones</div>
+    <div class="field"><label>Descripci&oacute;n del trabajo realizado <span class="req">*</span></label><textarea id="obs" placeholder="Describe brevemente el trabajo realizado&hellip;"></textarea></div>
+  </div>
+  <div class="msg" id="msgForm"></div>
+  <div class="brow" style="margin-bottom:4px">
+    <button class="btn btn-p btn-full" onclick="generar()" style="flex:2">&#9889; Generar parte</button>
+    <button class="btn btn-s" onclick="nuevo()" style="flex:1">&#128260; Nuevo</button>
+  </div>
+</div>
+<div id="w-result" class="win">
+  <button class="back" onclick="volverAlForm()">&#8592; Volver al formulario</button>
+  <div class="card"><div class="card-title">&#9989; Parte generado</div><div id="out"></div></div>
+  <div class="card">
+    <div class="field" id="fieldDescIncidencia" style="display:none;">
+      <label style="color:var(--amber);font-weight:700;">&#128203; Descripci&oacute;n de la incidencia</label>
+      <textarea id="descIncidencia" style="background:var(--surface2);color:var(--text2);font-size:.85rem;" readonly placeholder="Sin descripci&oacute;n de incidencia&hellip;"></textarea>
+    </div>
+    <div class="field" id="fieldNotaKmAdic" style="display:none;">
+      <label style="color:var(--amber);font-weight:700;">&#128663; Km adicionales</label>
+      <textarea id="notaKmAdicDisplay" style="background:var(--surface2);color:var(--text2);font-size:.85rem;" readonly></textarea>
+    </div>
+    <div class="field">
+      <label>&#128221; Descripci&oacute;n del trabajo realizado</label>
+      <textarea id="obsDisplay" style="background:var(--surface2);color:var(--text2);font-size:.85rem;" readonly></textarea>
+    </div>
+    <div class="brow">
+      <button class="btn btn-p" onclick="mostrarDialogoEstado()" id="gbtn">&#128190; Guardar parte</button>
+      <button class="btn btn-s btn-sm" onclick="copiar()">&#128203; Copiar</button>
+    </div>
+    <div class="msg" id="msgRes" style="margin-top:10px;margin-bottom:0"></div>
+  </div>
+</div>
+<div id="w-hist" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div id="histOpts">
+    <div class="hist-opts">
+      <div class="hist-opt amber-opt" onclick="verSec('ej')">
+        <div class="opt-ico">&#9203;</div>
+        <div class="opt-title">En ejecuci&oacute;n</div>
+        <div class="opt-count" id="cntEj">--</div>
+      </div>
+      <div class="hist-opt green-opt" onclick="verSec('fin')">
+        <div class="opt-ico">&#9989;</div>
+        <div class="opt-title">Finalizados</div>
+        <div class="opt-count" id="cntFin">--</div>
+      </div>
+    </div>
+    <div id="histTecBtns" style="margin-top:10px;"></div>
+    <div style="margin-top:14px">
+      <div class="card"><div class="card-title">&#128269; Buscar</div>
+        <div class="g2">
+          <div class="field"><label>Centro / tienda / pedido / nº parte</label><input id="busca" oninput="refreshCounts();renderSearchResults();if($(&apos;secView&apos;).style.display!==&apos;none&apos;)verSec(_secActual);" placeholder="Filtrar&hellip;"></div>
+          <div class="field"><label>Fecha</label><input id="buscaF" type="date" oninput="refreshCounts();renderSearchResults();if($(&apos;secView&apos;).style.display!==&apos;none&apos;)verSec(_secActual);"></div>
+        </div>
+        <div class="brow">
+          <button class="btn btn-s btn-sm" onclick="limpiarFiltros()">&#10005; Limpiar filtros</button>
+        </div>
+        <div id="searchResults" style="display:none;margin-top:10px;"></div>
+      </div>
+    </div>
+
+</div>
+<div id="resumenTotalView" style="display:none;position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;padding:16px;">
+    <button class="back" onclick="volverCentros()">&#8592; Centros</button>
+    <div class="card"><div class="card-title">&#128202; Resumen total</div><div id="resumenTotalContent"></div></div>
+    <div class="brow"><button class="btn btn-s btn-sm" onclick="compartirResumenTotal()">&#128203; Compartir</button></div>
+  </div>
+<div id="centrosView" style="display:none;position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;padding:16px;">
+    <button class="back" onclick="volverSecFin()">&#8592; Historial</button>
+    <div class="hist-sec-hdr fin">&#9989; Finalizados &mdash; por centro</div>
+    <div id="centrosList"></div>
+    <button onclick="verResumenTotal()" style="width:100%;padding:11px;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--r-sm);color:var(--green);font-weight:700;font-size:.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-family:inherit;">&#128202; Resumen total de todos los centros</button>
+  </div>
+  <div id="secView" style="display:none">
+    <button class="back" onclick="volverHistOpts()">&#8592; Historial</button>
+    <div id="secHdr" class="hist-sec-hdr"></div>
+    <div id="secList"></div>
+  </div>
+
+  <div id="incidenciasView" style="display:none">
+    <button class="back" onclick="volverCentros()">&#8592; Centros</button>
+    <div class="card" id="incCentroCard"></div>
+    <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:7px;">Incidencias</div>
+    <div id="incidenciasList"></div>
+    <button onclick="verResumenCentro()" style="width:100%;padding:11px;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--r-sm);color:var(--green);font-weight:700;font-size:.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-family:inherit;">&#128202; Resumen del centro</button>
+  </div>
+
+  <div id="resumenCentroView" style="display:none">
+    <button class="back" onclick="volverIncidencias()">&#8592; Incidencias</button>
+    <div class="card"><div class="card-title" id="resumenCentroTitle">&#128202; Resumen del centro</div><div id="resumenCentroContent"></div></div>
+    <div class="brow"><button class="btn btn-s btn-sm" onclick="compartirResumenCentro()">&#128203; Compartir</button></div>
+  </div>
+  <div id="ordenView" style="display:none">
+    <button class="back" onclick="volverSec()">&#8592; <span id="ordenBackLbl">Historial</span></button>
+    <div id="ordenBody"></div>
+  </div>
+  <div id="parteView" style="display:none">
+    <button class="back" onclick="volverOrden()">&#8592; Orden de servicio</button>
+    <div id="parteBody"></div>
+  </div>
+</div>
+
+<!-- W-STATS -->
+<div id="w-stats" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <select class="select-c" id="statsCliente" onchange="statsActualizar()">
+    <option value="todos">Todos los clientes</option>
+  </select>
+  <div class="tgl" id="statsTglP" style="margin-bottom:10px;">
+    <button class="active" onclick="statsSetPeriodo('todo',this)">Todo</button>
+    <button onclick="statsSetPeriodo('mes',this)">Este mes</button>
+    <button onclick="statsSetPeriodo('semana',this)">Esta semana</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:.84rem;color:var(--text2);">
+    <input type="checkbox" id="statsInclActivas" onchange="statsActualizar()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--amber);">
+    <label for="statsInclActivas">Incluir &#243;rdenes en ejecuci&#243;n</label>
+  </div>
+  <div id="statsActivasBanner" style="display:none;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:var(--amber);">&#9203; <span id="statsActivasBannerTxt"></span></div>
+  <div class="kpi-grid" id="statsKpiGrid"></div>
+  <!-- DETALLE KPI -->
+  <div id="statsDetalle" style="display:none;">
+    <button class="back" onclick="statsVolverMain()">&#8592; Estad&#237;sticas</button>
+    <div id="statsDetalleHdr" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;"></div>
+    <div class="card"><div id="statsDetalleContent"></div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <span style="font-size:.76rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Resumen</span>
+    <div class="tgl" style="width:auto;">
+      <button id="statsBtnCon" class="active" style="padding:5px 12px;font-size:.78rem;" onclick="statsSetVista('concepto',this)">Por concepto</button>
+      <button id="statsBtnCod" style="padding:5px 12px;font-size:.78rem;" onclick="statsSetVista('codigo',this)">Por c&#243;digo</button>
+    </div>
+  </div>
+  <div class="card"><div id="statsResumen"></div></div>
+  <div id="statsTecSection" style="margin-top:16px;display:none;">
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px;">&#128119; Por t&eacute;cnico</div>
+    <div id="statsTecList"></div>
+  </div>
+  <div class="brow">
+    <button class="btn btn-p btn-sm" onclick="statsExportarPDF()">&#128196; Exportar PDF</button>
+    <button class="btn btn-s btn-sm" onclick="statsCompartir()">&#128228; Compartir</button>
+  </div>
+</div>
+
+<div class="dialogo" id="dlgReabrir">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128274; Orden cerrada</div>
+    <div class="dialogo-sub">Esta orden ya est&aacute; cerrada:</div>
+    <div class="dialogo-orden-num"><span id="dlgReabrirNum"></span> &mdash; <span id="dlgReabrirCentro"></span></div>
+    <div class="dialogo-sub" id="dlgReabrirPregunta" style="margin-bottom:12px;">&#191;Quieres reabrirla y a&ntilde;adir un nuevo parte?</div>
+    <div class="brow" style="margin-bottom:10px;">
+      <button class="btn btn-p" id="dlgReabrirBtnSi" style="flex:1;justify-content:center" onclick="respReabrir(true)">&#128275; S&iacute;, reabrir</button>
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="respReabrir(false)">No, ver activas</button>
+    </div>
+    <div style="margin-top:8px;">
+      <button class="btn btn-s btn-sm btn-full" onclick="$('dlgReabrir').classList.remove('show');goTo('w-menu');">&#8592; Regresar</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgParteSinGuardar">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#9888;&#65039; Parte sin guardar</div>
+    <div class="dialogo-sub" style="margin-bottom:16px;">Tienes un parte con informaci&oacute;n sin guardar. Si sales ahora, la perder&aacute;s.</div>
+    <div class="brow" style="margin-bottom:10px;">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="_cerrarAvisoParteSinGuardar(false)">Quedarme</button>
+    </div>
+    <div class="brow">
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="_cerrarAvisoParteSinGuardar(true)">Salir de todas formas</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgTerminarGuardado">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128203; &iquest;C&oacute;mo queda la incidencia?</div>
+    <div class="dialogo-sub" id="dlgTerminarGuardadoSub"></div>
+    <div class="brow" style="margin-bottom:10px;">
+      <button class="btn btn-amber" style="flex:1;justify-content:center" onclick="_confirmarTerminarGuardado('en-ejecucion')">&#9203; Sigue abierta</button>
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="_confirmarTerminarGuardado('terminado')">&#9989; Cerrar incidencia</button>
+    </div>
+    <button class="btn btn-s btn-sm btn-full" onclick="$('dlgTerminarGuardado').classList.remove('show');">&#8592; Regresar</button>
+  </div>
+</div>
+<div class="dialogo" id="dlgSinConexionAdmin">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128225; Sin conexi&oacute;n</div>
+    <div class="dialogo-sub" style="margin-bottom:16px;">Sin conexi&oacute;n a internet. Para trabajar como administrador necesitas conexi&oacute;n. Los cambios que intentes hacer sin conexi&oacute;n no se guardar&aacute;n. Contin&uacute;a como t&eacute;cnico mientras se recupera.</div>
+    <div class="brow">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="_continuarComoTecnicoPorDesconexion()">&#128295; Continuar como t&eacute;cnico</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgConfirmar">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#9888;&#65039; Confirmar</div>
+    <div class="dialogo-sub" id="dlgConfirmarMsg" style="margin-bottom:16px;white-space:pre-line;"></div>
+    <div class="brow" style="margin-bottom:10px;">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="_confirmarAppSi()">&#10003; Aceptar</button>
+    </div>
+    <div class="brow">
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="_confirmarAppNo()">&#10005; Cancelar</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgIncidenciaDeOtro" onclick="_continuarTrasIncidenciaDeOtro()" style="cursor:pointer;">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128683; No te corresponde</div>
+    <div class="dialogo-sub" style="margin-bottom:16px;">Esa incidencia ya tiene asignaci&oacute;n y no le corresponde trabajar en ella. Si es necesario, pide la reasignaci&oacute;n.</div>
+    <div class="dialogo-sub" style="text-align:center;font-weight:700;">Toca para continuar</div>
+  </div>
+</div>
+<div class="dialogo" id="dlgKmAdicObligatoria" onclick="_cerrarAvisoKmAdicObligatoria()" style="cursor:pointer;">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128663; Falta la justificaci&oacute;n</div>
+    <div class="dialogo-sub" style="margin-bottom:16px;">Escribe la justificaci&oacute;n de los km adicionales.</div>
+    <div class="dialogo-sub" style="text-align:center;font-weight:700;">Toca para continuar</div>
+  </div>
+</div>
+<div class="dialogo" id="dlgInicioOrden">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128203; &iquest;C&oacute;mo seguimos?</div>
+    <div class="dialogo-sub" id="dlgInicioSub">Selecciona una opci&oacute;n:</div>
+    <div class="brow" style="margin-bottom:12px;">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="respInicioOrden()">&#43; Orden nueva</button>
+    </div>
+    <div id="dlgOrdenesActivas" style="display:none;max-height:260px;overflow-y:auto;"></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-s btn-sm btn-full" onclick="$('dlgInicioOrden').classList.remove('show');goTo('w-menu');">&#8592; Regresar</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgAsgTec">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo" id="dlgAsgTecTitulo">Incidencia</div>
+    <div class="dialogo-sub" id="dlgAsgTecSub"></div>
+    <div class="brow" style="margin-bottom:12px;">
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="consultarAsgTec()">&#128065; Consultar</button>
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="ejecutarAsgTec()">&#9881; Ejecutar</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-s btn-sm btn-full" onclick="$('dlgAsgTec').classList.remove('show');">&#8592; Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="w-consultaAsg" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Volver</button>
+  <div id="consultaAsgBody"></div>
+</div>
+<div id="w-papelera" class="win">
+  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="card">
+    <div class="card-title">&#128465; Papelera</div>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:0;">Partes e incidencias borrados. En vez de desaparecer, quedan aqu&iacute; guardados y se pueden restaurar en cualquier momento.</p>
+  </div>
+  <div id="papeleraLista"></div>
+</div>
+<div id="w-horas" class="win">
+  <button class="back" id="hBack" onclick="horasAtras()">&#8592; Inicio</button>
+  <div id="horasMenu">
+    <div class="hist-opts">
+      <div class="hist-opt amber-opt" onclick="horasMostrar('hoy')">
+        <div class="opt-ico">&#9201;&#65039;</div>
+        <div class="opt-title">Horas de hoy</div>
+        <div class="opt-count">Registra tu jornada</div>
+      </div>
+      <div class="hist-opt green-opt" onclick="horasMostrar('hist')">
+        <div class="opt-ico">&#128197;</div>
+        <div class="opt-title">Hist&oacute;rico</div>
+        <div class="opt-count">Meses, semanas y d&iacute;as</div>
+      </div>
+    </div>
+  </div>
+  <div id="horasForm" style="display:none;">
+  <div class="card">
+    <div class="card-title">&#9201;&#65039; Horas adicionales</div>
+    <div class="field"><label>Fecha <span class="req">*</span></label><input id="hFecha" type="date" onchange="horasCargarDia()"></div>
+    <div class="field"><label>Tipo de d&iacute;a</label>
+      <div class="tgl tgl-festivo" id="hTipoTgl">
+        <button class="active" onclick="horasSetFestivo(false)">Normal</button>
+        <button onclick="horasSetFestivo(true)">Festivo</button>
+      </div>
+      <div id="hTipoInfo" style="font-size:.78rem;color:var(--text2);margin-top:5px;"></div>
+    </div>
+    <div style="margin-bottom:11px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0;">
+        <input type="checkbox" id="hDieta" onchange="horasPintarDieta()" style="width:20px;height:20px;padding:0;cursor:pointer;accent-color:var(--green);flex:none;-webkit-appearance:checkbox;appearance:auto;">
+        Dieta (viaje con pernocta)
+      </label>
+      <div id="hDietaInfo" style="font-size:.78rem;color:var(--text2);margin-top:5px;"></div>
+    </div>
+    <div class="g2">
+      <div class="field"><label>Inicio del trabajo <span class="req">*</span></label><input id="hInicio" type="time" oninput="horasRecalcular()" onchange="horasRecalcular()"></div>
+      <div class="field"><label>Fin del trabajo <span class="req">*</span></label><input id="hFin" type="time" oninput="horasRecalcular()" onchange="horasRecalcular()"></div>
+    </div>
+    <div class="field"><label>Lugar de trabajo y breve comentario <span class="req">*</span></label><textarea id="hLugar" placeholder="Ej: Mercadona Cehegín 2227. Cambio de compresor, queda pendiente la prueba."></textarea></div>
+    <div id="hResultado" style="display:none;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:11px;font-size:.88rem;"></div>
+    <div class="msg" id="hMsg"></div>
+    <button class="btn btn-p" onclick="horasGuardar()">&#128190; Guardar horas</button>
+    <div id="hNotas" style="margin-top:10px;"></div>
+  </div>
+  </div>
+  <div id="horasHist" style="display:none;">
+    <div class="card">
+      <div class="card-title" id="hHistTitulo"></div>
+      <div id="hHistLista"></div>
+    </div>
+  </div>
+  <div id="horasMenuAdmin" style="display:none;">
+    <div class="hist-opts">
+      <div class="hist-opt amber-opt" onclick="horasMostrar('equipo')">
+        <div class="opt-ico">&#128101;</div>
+        <div class="opt-title">Equipo</div>
+        <div class="opt-count">Horas extras</div>
+      </div>
+      <div class="hist-opt green-opt" onclick="horasMostrar('tab')">
+        <div class="opt-ico">&#128182;</div>
+        <div class="opt-title">Tabulador</div>
+        <div class="opt-count">Precios y técnicos</div>
+      </div>
+      <div class="hist-opt amber-opt" onclick="horasMostrar('control')">
+        <div class="opt-ico">&#128467;&#65039;</div>
+        <div class="opt-title">Control horario</div>
+        <div class="opt-count">Días sin registrar</div>
+      </div>
+    </div>
+  </div>
+  <div id="horasControl" style="display:none;">
+    <div class="card">
+      <div class="card-title" id="hControlTitulo"></div>
+      <div id="hControlLista"></div>
+    </div>
+  </div>
+  <div id="horasEquipo" style="display:none;">
+    <div class="card">
+      <div class="card-title" id="hEquipoTitulo">&#128101; Equipo</div>
+      <div id="hEquipoLista"></div>
+    </div>
+  </div>
+  <div id="horasTab" style="display:none;">
+    <div class="card">
+      <div class="card-title" id="hTabTitulo"></div>
+      <div id="hTabCuerpo"></div>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgHorasParte">
+  <div class="dialogo-box" style="max-height:88vh;overflow-y:auto;">
+    <div style="position:sticky;top:-20px;z-index:1;background:var(--surface);margin:-20px -20px 10px;padding:14px 20px 8px;">
+      <button class="btn btn-s" style="width:100%;justify-content:center;" onclick="$('dlgHorasParte').classList.remove('show')">← Regresar</button>
+    </div>
+    <div class="dialogo-titulo" id="hParteTitulo"></div>
+    <div id="hParteDetalle"></div>
+  </div>
+</div>
+<div class="dialogo" id="dlgCorregir">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#9998; Datos modificados</div>
+    <div class="dialogo-sub">Has cambiado datos de este centro respecto al historial:</div>
+    <div id="dlgCorregirDifs" style="margin:10px 0;padding:10px;background:var(--surface2);border-radius:var(--r-sm);font-size:.82rem;color:var(--text2);"></div>
+    <div class="dialogo-sub" style="margin-bottom:14px;">¿Actualizas estos datos en todos los partes anteriores de este centro?</div>
+    <div class="brow">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="respCorregir(true)">&#9989; S&iacute;, actualizar</button>
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="respCorregir(false)">No, revertir</button>
+    </div>
+  </div>
+</div>
+<div class="dialogo" id="dlgEstado">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#128203; &iquest;La incidencia sigue abierta?</div>
+    <div class="dialogo-sub" id="dlgEstadoSub"></div>
+    <div class="brow" style="margin-bottom:10px;">
+      <button class="btn btn-amber" style="flex:1;justify-content:center" onclick="guardarConEstado('en-ejecucion')">&#9203; Sigue abierta</button>
+      <button class="btn btn-p" id="btnCertificarDialogo" style="display:none;flex:1;justify-content:center" onclick="certificarDesdeDialogo()">&#9989; Certificar</button>
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="guardarConEstado('terminado')">&#9989; Cerrar incidencia</button>
+    </div>
+    <button class="btn btn-s btn-sm btn-full" onclick="$('dlgEstado').classList.remove('show');">&#8592; Regresar</button>
+  </div>
+</div>
+
+<script>var APP_BUILD_ID = 'build-2026-10-24-v3-acceso-seguro';</script>
+<script src="js/01-base.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/02-clientes.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/03-almacen-agenda.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/04-catalogo-tecnicos.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/05-catalogo-pantallas.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/06-inicio-estadisticas.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/07-generar-parte.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/08-pdf.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/09-certificacion-asignacion.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/10-materiales.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/11-calculos-utilidades.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/12-leer-orden.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/13-editar-parte.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/14-papelera-autorrelleno.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+
+<!-- DIÁLOGO NOMBRE -->
+<div class="dlg" id="dlgNombre">
+  <div class="dlg-box">
+    <div class="dlg-title" id="dlgNombreTitulo">Nombre</div>
+    <div style="margin-top:10px;">
+      <input id="dlgNombreInp" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.95rem;font-family:inherit;background:var(--surface2);color:var(--text);outline:none;" placeholder="" autocomplete="off" onkeydown="if(event.key==='Enter')dlgNombreOk()">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-p" onclick="dlgNombreOk()">&#10003; Guardar</button>
+      <button class="btn btn-s" onclick="dlgNombreCancelar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DIÁLOGO EDITAR MATERIAL -->
+<div class="dlg" id="dlgEditMat">
+  <div class="dlg-box" style="max-width:400px;width:100%;">
+    <div class="dlg-title">&#9999;&#65039; Editar material</div>
+    <div style="margin-top:10px;">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:4px;">NOMBRE</div>
+      <div style="position:relative;">
+        <input id="dlgEditMatNom" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.92rem;font-family:inherit;background:var(--surface2);color:var(--text);outline:none;" autocomplete="off" oninput="dlgEditMatAc(this.value)">
+        <div id="dlgEditMatAcBox" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--r-sm);z-index:300;max-height:150px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.3);"></div>
+      </div>
+    </div>
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin:14px 0 6px;">MOVER A SECCIÓN</div>
+    <div id="dlgEditMatSecs" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-p" onclick="dlgEditMatGuardar()">&#10003; Guardar</button>
+      <button class="btn btn-d btn-sm" onclick="dlgEditMatBorrar()">&#128465; Borrar</button>
+      <button class="btn btn-s btn-sm" onclick="document.getElementById('dlgEditMat').classList.remove('show')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialogo" id="dlgAvisoCruzado">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#9888;&#65039; Orden en otro cliente</div>
+    <div class="dialogo-sub" id="dlgAvisoCruzadoTxt"></div>
+    <div class="brow">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="_confirmarAvisoCruzado()">&#8594; Ir a esa orden</button>
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="$('dlgAvisoCruzado').classList.remove('show')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialogo" id="dlgNocturno">
+  <div class="dialogo-box">
+    <div class="dialogo-titulo">&#127769; Turno nocturno</div>
+    <div class="dialogo-sub">La hora de salida es anterior a la llegada. &iquest;Trabajaste de un d&iacute;a para otro?</div>
+    <div class="brow">
+      <button class="btn btn-p" style="flex:1;justify-content:center" onclick="respNocturno(true)">&#9989; S&iacute;, de un d&iacute;a para otro</button>
+      <button class="btn btn-s" style="flex:1;justify-content:center" onclick="respNocturno(false)">No, es un error</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/00b-service-worker.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<!-- Firebase compat — al final para garantizar carga -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="js/15-firebase-inicio.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/16-conexion.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/17-sesion-sincronizacion.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/19-copias-seguridad.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/20-horas-adicionales.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-10-24-v3-acceso-seguro"></script>
+<!-- DIÁLOGO PIN CAMBIO ROL -->
+<div class="dlg" id="dlgCambioRol">
+  <div class="dlg-box" style="max-width:320px;">
+    <div class="dlg-title">&#8645; Cambiar rol</div>
+    <div style="font-size:.85rem;color:var(--text2);margin:8px 0 12px;">Introduce tu PIN para confirmar</div>
+    <input id="dlgCambioRolPin" type="password" inputmode="numeric" maxlength="4" placeholder="4 dígitos" style="width:100%;padding:10px;text-align:center;font-size:1.4rem;letter-spacing:.4em;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-family:inherit;" onkeydown="if(event.key==='Enter')confirmarCambioRol()">
+    <div id="dlgCambioRolMsg" style="min-height:18px;font-size:.82rem;color:var(--red);margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-p" onclick="confirmarCambioRol()">Confirmar</button>
+      <button class="btn btn-s" onclick="document.getElementById('dlgCambioRol').classList.remove('show');document.getElementById('dlgCambioRolPin').value='';">Cancelar</button>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>
