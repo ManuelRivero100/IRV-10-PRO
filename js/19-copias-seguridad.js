@@ -32,8 +32,9 @@ function _comprobarBackupDiario(){
   }).catch(_fallo('_comprobarBackupDiario backups.get'));
 }
 
-function _generarBackupCompleto(hoy){
-  if(typeof _db==='undefined'||!_db) return;
+// callback (opcional) recibe (true) si se guardó, o (false, motivo) si falló; lo usa el botón "Generar ahora"
+function _generarBackupCompleto(hoy, callback){
+  if(typeof _db==='undefined'||!_db){ if(callback) callback(false,'Sin conexión.'); return; }
   _db.collection('partes').get().then(function(snap){
     var partes=[]; snap.forEach(function(d){ partes.push(d.data()); });
     partes.sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
@@ -72,5 +73,45 @@ function _generarBackupCompleto(hoy){
       });
       return batch2.commit();
     });
-  }).catch(_fallo('_generarBackupCompleto'));
+  }).then(function(){ if(callback) callback(true); }).catch(function(e){
+    if(callback) callback(false, e && e.message); else _fallo('_generarBackupCompleto')(e);
+  });
+}
+
+function abrirBackups(){
+  if(!(window._sesion && window._sesion.rol==='admin')) return;
+  _verificarConexionFirestore(function(hayConexion){
+    if(!hayConexion){ alert('Necesitas conexión a internet para acceder a las copias de seguridad.'); return; }
+    goTo('w-backups');
+    _verEstadoBackups();
+  });
+}
+
+function _verEstadoBackups(){
+  var el=$('backupsEstado'); if(el) el.textContent='Consultando…';
+  _db.collection('backups').doc('meta').get().then(function(doc){
+    if(!el) return;
+    if(!doc.exists){ el.textContent='Todavía no se ha generado ninguna copia de seguridad.'; return; }
+    var m=doc.data();
+    var bloquesLlenos=Math.max(0,m.numBloquesPartes-1);
+    return _db.collection('backups').doc('partes_'+(m.numBloquesPartes-1)).get().then(function(ultimoBloque){
+      var tam = ultimoBloque.exists?(ultimoBloque.data().tamanoBytes||0):0;
+      var porcentaje = Math.min(100, Math.round((tam/BACKUP_LIMITE_BYTES)*100));
+      el.innerHTML = 'Última copia: <strong>'+escHtml(m.ultimaFechaBackup||'—')+'</strong><br>'
+        +m.totalPartesRespaldados+' partes · '+(m.totalIncidencias||0)+' incidencias<br>'
+        +bloquesLlenos+' bloque'+(bloquesLlenos===1?'':'s')+' lleno'+(bloquesLlenos===1?'':'s')+' y '
+        +'bloque actual al '+porcentaje+'% ('+(tam/1024).toFixed(1)+' KB de '+(BACKUP_LIMITE_BYTES/1024).toFixed(0)+' KB)';
+    });
+  }).catch(function(){ if(el) el.textContent='Error al consultar.'; });
+}
+
+function _generarBackupManual(){
+  if(!(window._sesion && window._sesion.rol==='admin')) return;
+  var btn=$('btnGenerarBackupManual'); if(btn){ btn.disabled=true; btn.textContent='Generando…'; }
+  var hoy=new Date().toISOString().slice(0,10);
+  _generarBackupCompleto(hoy, function(exito, error){
+    if(btn){ btn.disabled=false; btn.innerHTML='&#128190; Generar ahora'; }
+    if(exito){ showMsg('backupsMsg','Copia de seguridad generada.','success'); _verEstadoBackups(); }
+    else { showMsg('backupsMsg','Error al generar: '+(error||'desconocido'),'error'); }
+  });
 }

@@ -295,6 +295,8 @@ function _aplicarSesion(nombre, rol, multiRol) {
   if (sub) sub.textContent = nombre + ' · ' + rol;
   var icCat = document.getElementById('iconCatalogo');
   if (icCat) icCat.style.display = rol === 'admin' ? '' : 'none';
+  var icBackups = document.getElementById('iconBackups');
+  if (icBackups) icBackups.style.display = rol === 'admin' ? '' : 'none';
   var icPapelera = document.getElementById('iconPapelera');
   if (icPapelera) icPapelera.style.display = rol === 'admin' ? '' : 'none';
   setTimeout(_mostrarIconoUsuarios, 0);
