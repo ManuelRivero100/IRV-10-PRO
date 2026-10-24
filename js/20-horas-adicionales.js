@@ -623,7 +623,6 @@ function horasRenderEquipo(){
   if(e.tec===null){
     var mesAct=hoy().slice(0,7);
     tit.textContent='\u{1F465} Equipo · '+HORAS_MESES[+mesAct.slice(5,7)-1]+' '+mesAct.slice(0,4);
-    h+='<div style="font-size:.76rem;color:var(--text2);margin-bottom:10px;">Semáforo: solo cuenta lo que el técnico registra de más que los partes. Hasta '+Math.round(HORAS_UMBRAL_VERDE*100)+'% verde, hasta '+Math.round(HORAS_UMBRAL_NARANJA*100)+'% naranja, más rojo. El importe usa las horas que registra el técnico y el tabulador que tenía cada día.</div>';
     if(!nombres.length) h+='<p style="font-size:.85rem;color:var(--text2);margin:0;">Todavía no hay horas adicionales registradas por los técnicos.</p>';
     nombres.forEach(function(n, i){
       var regs=_horasRegsDe(todo, n).filter(function(r){ return r.fecha.slice(0,7)===mesAct; });
