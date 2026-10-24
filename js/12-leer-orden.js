@@ -616,75 +616,35 @@ function _cerrarAvisoKmAdicObligatoria(){
   var el=$('kmAdicionalesJust'); if(el) el.focus();
 }
 
+// PDF del resumen de la orden: es la pantalla de la orden (lista de datos _ordenActual.resumen) sin los botones
 function pdfOrden(){
   var o=window._ordenActual; if(!o) return;
   if(!window.jspdf){ alert('PDF no disponible.'); return; }
+  var m=o.resumen;
   var doc=pdfNuevo();
   var y=12;
 
-  var ordenTitle=o.actObras?o.actObras+' \u00b7 '+o.job:'Orden '+o.pedido+' \u00b7 '+o.job;
-  y=pdfHdr(doc,y,o.tienda+' \u00b7 '+ordenTitle);
+  y=pdfHdr(doc,y,m.tienda+' · '+m.titulo);
   y+=2;
-
-  // Info orden
-  y=pdfGroupTitle(doc,y,'Datos generales');
-  y=pdfInfoRow(doc,y,'CENTRO',o.centro||'');
-  y=pdfInfoRow(doc,y,'FECHAS',o.fechas.join(' \u00b7 '));
-  y=pdfInfoRow(doc,y,'PARTES',o.partes.length+' parte'+(o.partes.length===1?'':'s'));
-  y=pdfInfoRow(doc,y,'ESTADO',o.estado==='en-ejecucion'?'En ejecuci\u00f3n':'Finalizado');
+  // La letra del PDF no tiene la flecha que usa la pantalla entre las dos fechas
+  y=pdfInfoRow(doc,y,'FECHAS',m.fechas.replace(' → ',' a '));
+  y=pdfInfoRow(doc,y,'PARTES',m.nPartes+' parte'+(m.nPartes===1?'':'s'));
+  y=pdfInfoRow(doc,y,'ESTADO',m.estado==='en-ejecucion'?'En ejecución':'Finalizado');
   y+=3;
 
-  // Partes individuales
-  o.partes.forEach(function(p,pi){
-    var r=p.r;
-    var fF=r.fecha.split('-').reverse().join('/');
-    var _arrM=r.arr?tm(r.arr):0, _leaM=r.lea?tm(r.lea):r.fin;
-    var dur=fmtH((_leaM<_arrM?1440-_arrM+_leaM:_leaM-_arrM)/60);
+  y=pdfGroupTitle(doc,y,'Partes de esta orden');
+  m.partes.forEach(function(p){ y=pdfParteOrdenRow(doc,y,p); });
+  y+=2;
 
-    y=pdfCheck(doc,y,10);
-    // Mini cabecera parte
-    doc.setFillColor(_PDF.bgSurf[0],_PDF.bgSurf[1],_PDF.bgSurf[2]);
-    doc.rect(_PDF.mg,y,_PDF.cW,7,'F');
-    doc.setDrawColor(_PDF.green[0],_PDF.green[1],_PDF.green[2]);
-    doc.setLineWidth(0.5);
-    doc.line(_PDF.mg,y,_PDF.mg,y+7);
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
-    doc.setTextColor(_PDF.green[0],_PDF.green[1],_PDF.green[2]);
-    doc.text('Parte '+(pi+1)+(r.numParte?' ('+r.numParte+')':'')+' \u2014 '+fF,_PDF.mg+3,y+5);
-    doc.setFont('helvetica','normal'); doc.setTextColor(_PDF.text2[0],_PDF.text2[1],_PDF.text2[2]);
-    doc.setFontSize(6.5);
-    doc.text((r.arr||'--')+' \u2013 '+(r.lea||'--')+' \u00b7 '+dur,_PDF.mg+_PDF.cW-3,y+5,{align:'right'});
-    y+=9;
+  y=pdfGroupTitle(doc,y,'Códigos acumulados');
+  if(m.codigos.length) m.codigos.forEach(function(c){ y=pdfCodeRow(doc,y,c.cod,c.lab,c.valor); });
+  else y=pdfTextoVacio(doc,y,'Sin datos.');
+  if(m.total) y=pdfTotalRowConPrecio(doc,y,m.total.horas,m.total.precio);
+  y+=3;
 
-    var cods=r.codigos||[];
-    cods.forEach(function(c){
-      var val=c.u==='km'?Math.round(c.v)+' km':c.u==='dieta'?'\u00d7 '+Math.round(c.v):fmtH(c.v);
-      y=pdfCodeRow(doc,y,c.cod,c.lab,val);
-    });
-
-    var usados=(r.materiales||[]).filter(function(m){return m.cantidad&&+m.cantidad>0;});
-    if(usados.length){
-      y=pdfGroupTitle(doc,y,'Materiales');
-      usados.forEach(function(m){ y=pdfMatRow(doc,y,m.nombre,m.cantidad); });
-    }
-    y+=4;
-  });
-
-  // Total acumulado
-  y=pdfDivider(doc,y);
-  y=pdfGroupTitle(doc,y,'Total acumulado');
-  Object.values(o.codAcum).forEach(function(c){
-    var val=c.u==='km'?Math.round(c.v)+' km':c.u==='dieta'?'\u00d7 '+Math.round(c.v):fmtH(c.v);
-    y=pdfCodeRow(doc,y,c.rc,c.rl,val);
-  });
-
-  if(Object.keys(o.matAcum).length){
-    y+=3;
-    y=pdfGroupTitle(doc,y,'Materiales totales');
-    Object.keys(o.matAcum).forEach(function(n){
-      y=pdfMatRow(doc,y,n,o.matAcum[n]);
-    });
-  }
+  y=pdfGroupTitle(doc,y,'Materiales acumulados');
+  if(m.materiales.length) m.materiales.forEach(function(x){ y=pdfFilaNombreCantidad(doc,y,x.nombre,x.cantidad); });
+  else y=pdfTextoVacio(doc,y,'Sin materiales registrados.');
 
   pdfFooter(doc,y+4);
   pdfGuardar(doc,'IRV_resumen_'+(o.actObras||o.pedido)+'_'+o.centro);

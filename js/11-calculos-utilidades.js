@@ -423,6 +423,8 @@ function verOrden(enc){
     }
   });
 
+  // Lista de datos del resumen: la pantalla y el PDF salen de aquí, así que siempre dicen lo mismo
+  var modeloPartes=[];
   var partesHTML=partes.map(function(p,pi){
     var fF=p.r.fecha.split('-').reverse().join('/');
     var _arrM=p.r.arr?tm(p.r.arr):0, _leaM=p.r.lea?tm(p.r.lea):p.r.fin;
@@ -431,16 +433,23 @@ function verOrden(enc){
     var _color=_bloque?_colorPorBloque[_bloque]:'';
     var _esUltimoParteOrden=(p.idx===_idxUltimoParteOrden);
     var _esUltimoDelBloque=!!_esUltimoDelBloquePorIdx[p.idx];
-    var _etiqueta='', _fechaCertHTML='';
+    var _etiqueta='', _fechaCertHTML='', _etiquetaTxt='', _certTxt='';
     if(_esUltimoParteOrden && lastEstado==='terminado' && _bloques.length){
       _etiqueta=' <span style="font-size:.68rem;font-weight:700;color:var(--text3);">&middot; Cerrada</span>';
+      _etiquetaTxt='Cerrada';
     } else if(_esUltimoDelBloque){
       _etiqueta=' <span style="font-size:.68rem;font-weight:700;color:#4ade80;">&middot; Certificados</span>';
+      _etiquetaTxt='Certificados';
       // fechaCertificado es el campo propio de la certificación; en partes certificados antes
       // de que existiera ese campo, se cae a fechaModificacion (que en su momento coincidía).
       var _msCert=p.r.fechaCertificado||p.r.fechaModificacion;
-      if(_msCert) _fechaCertHTML='<div style="font-size:.72rem;color:#4ade80;margin-top:1px;">Certificado el '+_fmtFechaHora(_msCert)+'</div>';
+      if(_msCert){
+        _certTxt='Certificado el '+_fmtFechaHora(_msCert);
+        _fechaCertHTML='<div style="font-size:.72rem;color:#4ade80;margin-top:1px;">'+_certTxt+'</div>';
+      }
     }
+    modeloPartes.push({ n:pi+1, numParte:p.r.numParte||'', fecha:fF, etiqueta:_etiquetaTxt, certificadoEl:_certTxt, color:_color,
+      horario:(p.r.arr||'--')+' – '+(p.r.lea||'--')+' · '+dur });
     var _tituloStyle='font-size:.85rem;font-weight:600;'+(_color?('color:'+_color+';'):'');
     return '<div class="orden-parte-item" onclick="verParte('+p.idx+')"><div><div style="'+_tituloStyle+'">Parte '+(pi+1)+(p.r.numParte?' ('+p.r.numParte+')':'')+' &middot; '+fF+_etiqueta+'</div><div style="font-size:.76rem;color:var(--text2);">'+(p.r.arr||'--')+' – '+(p.r.lea||'--')+' &middot; '+dur+'</div>'+_fechaCertHTML+'</div><span style="color:var(--text3);">&#8250;</span></div>';
   }).join('');
@@ -448,6 +457,8 @@ function verOrden(enc){
   var codHTML=Object.values(codAcum).length
     ?Object.values(codAcum).map(function(c){ return '<div class="acum-row"><span>'+c.rc+' &middot; '+c.rl+'</span><span style="font-weight:600;">'+fmtVal(c.v,c.u)+'</span></div>'; }).join('')
     :'<div style="font-size:.82rem;color:var(--text3);padding:6px 0;">Sin datos.</div>';
+  var modeloCodigos=Object.values(codAcum).map(function(c){ return {cod:c.rc, lab:c.rl, valor:fmtVal(c.v,c.u)}; });
+  var modeloTotal=null;
   // Añadir TOTAL con precio si cliente de cobro
   var _conPrecios=curCliente&&curCliente.precios===true;
   if(_conPrecios&&Object.values(codAcum).length){
@@ -457,6 +468,7 @@ function verOrden(enc){
       _precioTot+=getPrecioPorCod(c.rc,c.rl,g.job)*c.v;
     });
     if(_precioTot>0){
+      modeloTotal={horas:_hTot>0?fmtH(_hTot):'', precio:fmtPrecio(_precioTot)};
       codHTML+='<div class="acum-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;font-weight:700;color:#4ade80;">'+
         '<span>TOTAL</span>'+
         '<span>'+(_hTot>0?fmtH(_hTot)+'&nbsp;&nbsp;':'')+fmtPrecio(_precioTot)+'</span></div>';
@@ -469,7 +481,11 @@ function verOrden(enc){
 
   window._ordenActual={ tienda:g.tienda, pedido:pedido, job:g.job, centro:g.centro, clienteId:g.clienteId||'mercadona', actObras:g.actObras||null,
     fechas:partes.map(function(p){ return p.r.fecha.split('-').reverse().join('/'); }),
-    estado:lastEstado, codAcum:codAcum, matAcum:matAcum, partes:partes };
+    estado:lastEstado, codAcum:codAcum, matAcum:matAcum, partes:partes,
+    // Lo que dice la pantalla de la orden, en datos: el PDF resumen lo dibuja desde aquí (ver pdfOrden)
+    resumen:{ tienda:g.tienda, titulo:(g.actObras?g.actObras+' · '+g.job:'Orden '+pedido+' · '+g.job), estado:lastEstado, fechas:fr,
+      nPartes:partes.length, partes:modeloPartes, codigos:modeloCodigos, total:modeloTotal,
+      materiales:Object.keys(matAcum).map(function(n){ return {nombre:n, cantidad:matAcum[n]}; }) } };
 
   var _sinCertOrden=partesTodas.filter(function(p){ return !p.r.bloqueCertificado; }).length;
   var _mostrarCertBtn=_esAdmin() && lastEstado==='en-ejecucion' && _sinCertOrden>=4;

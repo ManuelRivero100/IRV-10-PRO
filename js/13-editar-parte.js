@@ -136,12 +136,11 @@ var wRoles=[],wNames=[];
 
 // Índice del parte que se está viendo en el histórico (lo usa la recuperación de pantalla al volver a la app)
 var _parteIdxActual=null;
-function verParte(idx){
-  _parteIdxActual=idx;
-  $('ordenView').style.display='none'; $('parteView').style.display='block';
-  var all=getH(); var r=all[idx]; if(!r) return;
+
+// Cuerpo del parte tal como lo ve el usuario: cabecera, detalle (con precios en clientes de cobro), total y
+// observaciones. Lo usan la pantalla del parte y su PDF (pdfDesde), así que siempre dicen lo mismo.
+function parteCuerpoHTML(r){
   var fF=r.fecha?r.fecha.split('-').reverse().join('/'):'--';
-  var matHTML='';
   // Procesar detalle con precios si cliente de cobro
   var _detalleHTML = r.detalle||'<div style="color:var(--text2);padding:10px">Sin detalle.</div>';
   var _totalHTML = '';
@@ -174,12 +173,19 @@ function verParte(idx){
         '</div>';
     }
   }
-  $('parteBody').innerHTML=
-    '<div class="card"><div class="card-title">&#128203; '+escHtml(r.tienda)+' &middot; '+fF+'</div>'+
-
+  return '<div class="card-title">&#128203; '+escHtml(r.tienda)+' &middot; '+fF+'</div>'+
     _detalleHTML+
     _totalHTML+
-    (function(){ var _obsCompl=observacionesCompletas(r); return _obsCompl?('<div class="divider"></div><div class="rrow obs-row" style="height:auto"><span class="rc" style="align-self:flex-start;padding-top:8px">Obs.</span><span class="rl" style="white-space:pre-wrap;word-break:break-word;height:auto;flex:1">'+escHtml(_obsCompl)+'</span></div>'):''; })()+
+    (function(){ var _obsCompl=observacionesCompletas(r); return _obsCompl?('<div class="divider"></div><div class="rrow obs-row" style="height:auto"><span class="rc" style="align-self:flex-start;padding-top:8px">Obs.</span><span class="rl" style="white-space:pre-wrap;word-break:break-word;height:auto;flex:1">'+escHtml(_obsCompl)+'</span></div>'):''; })();
+}
+
+function verParte(idx){
+  _parteIdxActual=idx;
+  $('ordenView').style.display='none'; $('parteView').style.display='block';
+  var all=getH(); var r=all[idx]; if(!r) return;
+  var matHTML='';
+  $('parteBody').innerHTML=
+    '<div class="card">'+parteCuerpoHTML(r)+
     '<div class="divider"></div><div class="brow" style="margin-bottom:8px;">'+
     '<button class="btn btn-s btn-sm" onclick="hacerPDF('+idx+')">PDF</button>'+
     '<button class="btn btn-s btn-sm" onclick="compartirParte('+idx+')">Compartir</button>'+

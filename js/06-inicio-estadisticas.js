@@ -471,32 +471,46 @@ function statsExportarPDF(){
   var doc=pdfNuevo();
   var y=12;
 
+  // El PDF es la pantalla de Estad\u00edsticas sin los botones, en el mismo orden y con los mismos textos
+  var texto=function(el){ return pdfLimpiar(el.textContent.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()); };
   var cli=$('statsCliente')?$('statsCliente').options[$('statsCliente').selectedIndex].text:'Todos';
-  var periodos={todo:'Todo el historial',mes:'Este mes',semana:'Esta semana'};
   y=pdfHdr(doc,y,'Estad\u00edsticas IRV-10 \u00b7 '+cli);
   y+=2;
 
-  y=pdfInfoRow(doc,y,'PER\u00cdODO',periodos[_statsPeriodo]||'Todo');
+  var btnPeriodo=document.querySelector('#statsTglP button.active');
+  y=pdfInfoRow(doc,y,'PER\u00cdODO',btnPeriodo?texto(btnPeriodo):'Todo');
+  y=pdfInfoRow(doc,y,'INCLUIR',texto($('statsInclActivas').parentNode.querySelector('label'))+': '+(statsInclActivas()?'S\u00ed':'No'));
+  var banner=$('statsActivasBanner');
+  if(banner&&banner.style.display!=='none') y=pdfFilaTexto(doc,y,texto(banner));
   y+=3;
 
-  var centros={},incs={},horas=0,km=0,dietas=0;
-  datos.forEach(function(r){
-    centros[r.centro||'?']=1;
-    incs[(r.pedido||'')+'||'+(r.centro||'')]=1;
-    (r.codigos||[]).forEach(function(c){
-      if(c.u==='h') horas+=c.v;
-      if(c.u==='km') km+=c.v;
-      if(c.u==='dieta') dietas+=c.v;
-    });
+  // Los seis totales (Centros, Incidencias, Partes, Horas, Km, Dietas)
+  document.querySelectorAll('#statsKpiGrid .kpi').forEach(function(k){
+    var lab=texto(k.querySelector('.kpi-label'));
+    y=pdfCodeRow(doc,y,{Horas:'h',Km:'km',Dietas:'½'}[lab]||'#',lab,texto(k.querySelector('.kpi-val')));
+  });
+  y+=3;
+
+  // Resumen, en la vista que est\u00e9 elegida (por concepto o por c\u00f3digo)
+  var vista=document.querySelector('#statsBtnCon.active,#statsBtnCod.active');
+  y=pdfGroupTitle(doc,y,'Resumen'+(vista?' \u00b7 '+texto(vista):''));
+  Array.from($('statsResumen').children).forEach(function(el){
+    if(el.classList.contains('rgroup-title')) y=pdfGroupTitle(doc,y,texto(el));
+    else if(el.classList.contains('rrow')){
+      if(el.classList.contains('total-row')) y=pdfTotalRow(doc,y,texto(el.querySelector('.rv')));
+      else if(el.querySelector('.rc')) y=pdfCodeRow(doc,y,texto(el.querySelector('.rc')),texto(el.querySelector('.rl')),texto(el.querySelector('.rv')));
+      else y=pdfFilaNombreCantidad(doc,y,texto(el.querySelector('.rl')),texto(el.querySelector('.rv')));
+    }
+    else y=pdfTextoVacio(doc,y,texto(el));
   });
 
-  y=pdfGroupTitle(doc,y,'Resumen');
-  y=pdfCodeRow(doc,y,'#','Centros',''+Object.keys(centros).length);
-  y=pdfCodeRow(doc,y,'#','Incidencias',''+Object.keys(incs).length);
-  y=pdfCodeRow(doc,y,'#','Partes',''+datos.length);
-  y=pdfCodeRow(doc,y,'h','Horas',statsFmtH(horas));
-  y=pdfCodeRow(doc,y,'km','Kilometraje',Math.round(km)+' km');
-  y=pdfCodeRow(doc,y,'\u00bd','Dietas',''+dietas);
+  // Por t\u00e9cnico: la tarjeta de resumen de cada uno (el desplegable "Ver partes trabajados" no se incluye: en la pantalla sale cerrado)
+  var sec=$('statsTecSection');
+  if(sec&&sec.style.display!=='none'){
+    y+=3;
+    y=pdfGroupTitle(doc,y,'Por t\u00e9cnico');
+    document.querySelectorAll('#statsTecList .tec-card-s').forEach(function(c){ y=pdfTecnicoStats(doc,y,c.querySelector('.tec-sum'),texto); });
+  }
 
   pdfFooter(doc,y+8);
   pdfGuardar(doc,'IRV_estadisticas_'+cli.replace(/\s/g,'_'));
