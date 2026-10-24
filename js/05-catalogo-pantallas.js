@@ -30,6 +30,7 @@ function catNavRenderSecciones(g){
         +'<select id="matFlotSec_'+f.id+'" onchange="_matFlotSecCambiada(\''+f.id+'\')" style="flex:1;min-width:120px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.84rem;">'+secOpts+'</select>'
         +'<select id="matFlotSub_'+f.id+'" style="flex:1;min-width:120px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.84rem;display:none;"><option value="">Subsecci&oacute;n...</option></select>'
         +'<button onclick="catAsignarMaterialFlotante(\''+f.id+'\')" style="padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:var(--r-sm);font-weight:700;font-size:.82rem;cursor:pointer;">Asignar</button>'
+        +'<button onclick="catDescartarMaterialFlotante(\''+f.id+'\')" title="Descartar: no se a&ntilde;ade al cat&aacute;logo" style="padding:7px 12px;background:var(--red-light);color:var(--red);border:1px solid var(--red);border-radius:var(--r-sm);font-weight:700;font-size:.82rem;cursor:pointer;">&#10005; Descartar</button>'
         +'</div></div>';
     });
   }
@@ -90,6 +91,21 @@ function catAsignarMaterialFlotante(flotId){
       showMsg('msgCat','Asignado, pero no se pudo limpiar el pendiente. Vuelve a intentarlo si sigue apareciendo.','error');
       catNavRender();
     });
+  });
+}
+
+// Descarta un material flotante pendiente: se quita de la lista sin añadirlo al catálogo. No toca los partes
+// donde un técnico ya lo usó. Si un técnico lo vuelve a añadir, aparece otra vez como pendiente.
+function catDescartarMaterialFlotante(flotId){
+  var flotante=getMaterialesFlotantes().find(function(f){return f.id===flotId;});
+  if(!flotante){ showMsg('msgCat','Este material ya no est&aacute; pendiente.','error'); return; }
+  _confirmarApp('¿Descartar "'+flotante.nombre+'"? Se quitará de pendientes y no se añadirá al catálogo.', function(){
+    _db.collection('materialesFlotantes').doc(flotId).delete().then(function(){
+      setMaterialesFlotantes(getMaterialesFlotantes().filter(function(f){return f.id!==flotId;}));
+      catActualizarBadge();
+      catNavRender();
+      showMsg('msgCat','Material descartado.','success');
+    }).catch(function(){ showMsg('msgCat','No se pudo descartar. Comprueba tu conexi&oacute;n.','error'); });
   });
 }
 
