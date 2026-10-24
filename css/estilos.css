@@ -40,6 +40,9 @@ body{font-family:sans-serif;background:var(--bg);color:var(--text);min-height:10
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .back{display:flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600;color:var(--green);background:none;border:none;cursor:pointer;padding:0;margin-bottom:14px;font-family:inherit}
 .back:hover{text-decoration:underline}
+/* Barra de navegación de cada pantalla: "Atrás" (pantalla anterior) y, si la anterior no es el inicio, "Inicio" */
+.navrow{display:flex;align-items:center;gap:22px;margin-bottom:14px}
+.navrow .back{margin-bottom:0}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh)}
 .card-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--green);margin-bottom:13px;padding-bottom:9px;border-bottom:1px solid var(--green-light);display:flex;align-items:center;gap:6px}
 .field{margin-bottom:10px}

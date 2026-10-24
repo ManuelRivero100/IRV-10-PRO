@@ -128,6 +128,9 @@ function goToRaw(id){
 // también automáticamente al minuto 4 de inactividad (1 min antes de que la
 // pantalla se apague por el Wake Lock). No guarda ni restaura nada — solo avisa.
 function _parteTieneContenidoSinGuardar(){
+  // En la pantalla del parte generado, está sin guardar mientras el botón "Guardar parte" siga activo
+  var res=$('w-result');
+  if(res && res.classList.contains('active')){ var g=$('gbtn'); return !!(g && !g.disabled); }
   var w=$('w-form');
   if(!w || !w.classList.contains('active')) return false;
   var obs=$('obs');
@@ -190,4 +193,33 @@ function goTo(id){
   }
   if(id==='w-menu'&&curCliente){ resetearEstadoCompleto(); renderMenu(); }
 }
+
+// Botones "Atrás" / "Inicio" (.navrow): la barra de la pantalla se oculta cuando una vista interior (historial, estadísticas,
+// catálogo) muestra la suya, y en el formulario "Inicio" sobra si "Atrás" ya lleva al inicio (incidencia asignada).
+// Se vuelve a calcular cuando cambia el estilo o la clase de cualquier elemento, para no depender de cada función que muestra u oculta vistas.
+function _navSincronizar(){
+  var w=document.querySelector('.win.active'); if(!w) return;
+  var barras=w.querySelectorAll('.navrow'); if(!barras.length) return;
+  var top=null;
+  for(var i=0;i<w.children.length;i++){ if(w.children[i].classList.contains('navrow')){ top=w.children[i]; break; } }
+  if(top){
+    var interiorVisible=false;
+    for(var j=0;j<barras.length;j++){ if(barras[j]!==top && barras[j].getClientRects().length) interiorVisible=true; }
+    var v=interiorVisible?'none':'';
+    if(top.style.display!==v) top.style.display=v;
+  }
+  var fi=$('formInicio');
+  if(fi){ var vf=window._asgTecActual?'none':''; if(fi.style.display!==vf) fi.style.display=vf; }
+}
+var _navPendiente=false;
+function _navProgramar(){
+  if(_navPendiente) return;
+  _navPendiente=true;
+  requestAnimationFrame(function(){ _navPendiente=false; _navSincronizar(); });
+}
+function _navIniciar(){
+  _navSincronizar();
+  new MutationObserver(_navProgramar).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_navIniciar); else _navIniciar();
 

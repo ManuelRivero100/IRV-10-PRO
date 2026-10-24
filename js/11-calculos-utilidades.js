@@ -382,7 +382,6 @@ function verOrden(enc){
   var f1=partes[0].r.fecha.split('-').reverse().join('/');
   var fN=partes[partes.length-1].r.fecha.split('-').reverse().join('/');
   var fr=f1===fN?f1:f1+' → '+fN;
-  $('ordenBackLbl').textContent=lastEstado==='en-ejecucion'?'En ejecución':'Finalizados';
 
   var codAcum={};
   // Agrupar por código+etiqueta, no solo por código — así Oficial y Peón (mismo código en

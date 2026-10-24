@@ -6,7 +6,7 @@
 <script>// Si hay una sesión guardada, se oculta la entrada y la presentación mientras se recupera (ver js/22-recuperar-pantalla.js)
 try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList.add('recuperando'); } catch(e) {}</script>
   <link rel="manifest" href="manifest.json">
-<script src="js/00-manifest.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
+<script src="js/00-manifest.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
   <meta name="theme-color" content="#2d9e5f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   <meta name="apple-mobile-web-app-title" content="Partes IRV-10">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=yes">
 <title>Partes IRV-10</title>
-<link rel="stylesheet" href="css/estilos.css?v=build-2026-10-25d-v3-pdf-igual-pantalla">
+<link rel="stylesheet" href="css/estilos.css?v=build-2026-10-25e-v3-botones-atras-inicio">
 </head>
 <body>
 <!-- PANTALLA LOGIN -->
@@ -108,7 +108,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-catalogo" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div class="cat-tabs">
     <button class="cat-tab active" onclick="catTab('materiales',this)">&#128295; Materiales<span id="catMatFlotanteBadge" style="display:none;background:var(--amber);color:#fff;font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;">0</span></button>
     <button class="cat-tab" onclick="catTab('conceptos',this)">&#9201; Conceptos</button>
@@ -152,7 +152,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
 </div>
 </div>
 <div id="w-nuevo-cliente" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div class="card">
     <div class="card-title">&#43; Nuevo cliente</div>
     <div class="field"><label>Nombre <span class="req">*</span></label><input id="nc-nombre" placeholder="Ej: Construcciones García"></div>
@@ -173,11 +173,11 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-menu" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div id="menuGrid" class="app-grid"></div>
 </div>
 <div id="w-asignar" class="win">
-  <button class="back" onclick="goTo('w-menu')">&#8592; Men&uacute; principal</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-menu')">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
   <button class="btn btn-p btn-full" style="margin-bottom:10px;" onclick="toggleCard('cardCrearAsg',this)">&#10133; Crear asignaci&oacute;n</button>
   <div class="card" id="cardCrearAsg" style="display:none">
     <div class="card-title">&#128229; Asignar incidencia</div>
@@ -206,7 +206,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-form" class="win">
-  <button class="back" onclick="_asgTecActual?(_asgTecActual=null,goTo('w-clientes')):goTo('w-menu')">&#8592; Men&uacute; principal</button>
+  <div class="navrow"><button class="back" onclick="_asgTecActual?(_asgTecActual=null,goTo('w-clientes')):goTo('w-menu')">&#8592; Atr&aacute;s</button><button class="back" id="formInicio" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
   <button class="btn btn-s btn-full" style="margin-bottom:10px;" onclick="toggleCard('cardLectura',this)">&#128196; Auto-relleno</button>
   <div class="card" id="cardLectura" style="display:none"><div class="card-title">&#128196; Lectura de orden</div>
     <div class="field"><label>Pegar texto de la orden</label><textarea id="raw" rows="5" placeholder="Pega aqu&iacute; el texto de la orden&hellip;"></textarea></div>
@@ -359,7 +359,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-result" class="win">
-  <button class="back" onclick="volverAlForm()">&#8592; Volver al formulario</button>
+  <div class="navrow"><button class="back" onclick="volverAlForm()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
   <div class="card"><div class="card-title">&#9989; Parte generado</div><div id="out"></div></div>
   <div class="card">
     <div class="field" id="fieldDescIncidencia" style="display:none;">
@@ -382,7 +382,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-hist" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Clientes</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div id="histOpts">
     <div class="hist-opts">
       <div class="hist-opt amber-opt" onclick="verSec('ej')">
@@ -412,24 +412,24 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
 
 </div>
 <div id="resumenTotalView" style="display:none;position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;padding:16px;">
-    <button class="back" onclick="volverCentros()">&#8592; Centros</button>
+    <div class="navrow"><button class="back" onclick="volverCentros()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div class="card"><div class="card-title">&#128202; Resumen total</div><div id="resumenTotalContent"></div></div>
     <div class="brow"><button class="btn btn-s btn-sm" onclick="compartirResumenTotal()">&#128203; Compartir</button></div>
   </div>
 <div id="centrosView" style="display:none;position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;padding:16px;">
-    <button class="back" onclick="volverSecFin()">&#8592; Historial</button>
+    <div class="navrow"><button class="back" onclick="volverSecFin()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div class="hist-sec-hdr fin">&#9989; Finalizados &mdash; por centro</div>
     <div id="centrosList"></div>
     <button onclick="verResumenTotal()" style="width:100%;padding:11px;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--r-sm);color:var(--green);font-weight:700;font-size:.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-family:inherit;">&#128202; Resumen total de todos los centros</button>
   </div>
   <div id="secView" style="display:none">
-    <button class="back" onclick="volverHistOpts()">&#8592; Historial</button>
+    <div class="navrow"><button class="back" onclick="volverHistOpts()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div id="secHdr" class="hist-sec-hdr"></div>
     <div id="secList"></div>
   </div>
 
   <div id="incidenciasView" style="display:none">
-    <button class="back" onclick="volverCentros()">&#8592; Centros</button>
+    <div class="navrow"><button class="back" onclick="volverCentros()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div class="card" id="incCentroCard"></div>
     <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:7px;">Incidencias</div>
     <div id="incidenciasList"></div>
@@ -437,23 +437,23 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 
   <div id="resumenCentroView" style="display:none">
-    <button class="back" onclick="volverIncidencias()">&#8592; Incidencias</button>
+    <div class="navrow"><button class="back" onclick="volverIncidencias()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div class="card"><div class="card-title" id="resumenCentroTitle">&#128202; Resumen del centro</div><div id="resumenCentroContent"></div></div>
     <div class="brow"><button class="btn btn-s btn-sm" onclick="compartirResumenCentro()">&#128203; Compartir</button></div>
   </div>
   <div id="ordenView" style="display:none">
-    <button class="back" onclick="volverSec()">&#8592; <span id="ordenBackLbl">Historial</span></button>
+    <div class="navrow"><button class="back" onclick="volverSec()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div id="ordenBody"></div>
   </div>
   <div id="parteView" style="display:none">
-    <button class="back" onclick="volverOrden()">&#8592; Orden de servicio</button>
+    <div class="navrow"><button class="back" onclick="volverOrden()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div id="parteBody"></div>
   </div>
 </div>
 
 <!-- W-STATS -->
 <div id="w-stats" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <select class="select-c" id="statsCliente" onchange="statsActualizar()">
     <option value="todos">Todos los clientes</option>
   </select>
@@ -470,7 +470,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   <div class="kpi-grid" id="statsKpiGrid"></div>
   <!-- DETALLE KPI -->
   <div id="statsDetalle" style="display:none;">
-    <button class="back" onclick="statsVolverMain()">&#8592; Estad&#237;sticas</button>
+    <div class="navrow"><button class="back" onclick="statsVolverMain()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
     <div id="statsDetalleHdr" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;"></div>
     <div class="card"><div id="statsDetalleContent"></div></div>
   </div>
@@ -592,11 +592,11 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-consultaAsg" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Volver</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div id="consultaAsgBody"></div>
 </div>
 <div id="w-backups" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div class="card">
     <div class="card-title">&#128190; Copias de seguridad</div>
     <p style="font-size:.85rem;color:var(--text2);margin-bottom:12px;">Se genera sola, una vez al d&iacute;a, al entrar como admin. Guarda partes, incidencias, cat&aacute;logo, agenda y t&eacute;cnicos.</p>
@@ -609,7 +609,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 <div id="w-papelera" class="win">
-  <button class="back" onclick="goTo('w-clientes')">&#8592; Inicio</button>
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
   <div class="card">
     <div class="card-title">&#128465; Papelera</div>
     <p style="font-size:.85rem;color:var(--text2);margin-bottom:0;">Partes e incidencias borrados. En vez de desaparecer, quedan aqu&iacute; guardados y se pueden restaurar en cualquier momento.</p>
@@ -617,7 +617,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   <div id="papeleraLista"></div>
 </div>
 <div id="w-horas" class="win">
-  <button class="back" id="hBack" onclick="horasAtras()">&#8592; Inicio</button>
+  <div class="navrow"><button class="back" id="hBack" onclick="horasAtras()">&#8592; Atr&aacute;s</button><button class="back" id="hInicio" onclick="goTo('w-clientes')" style="display:none;">&#8962; Inicio</button></div>
   <div id="horasMenu">
     <div class="hist-opts">
       <div class="hist-opt amber-opt" onclick="horasMostrar('hoy')">
@@ -739,21 +739,21 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script>var APP_BUILD_ID = 'build-2026-10-25d-v3-pdf-igual-pantalla';</script>
-<script src="js/01-base.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/02-clientes.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/03-almacen-agenda.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/04-catalogo-tecnicos.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/05-catalogo-pantallas.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/06-inicio-estadisticas.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/07-generar-parte.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/08-pdf.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/09-certificacion-asignacion.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/10-materiales.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/11-calculos-utilidades.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/12-leer-orden.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/13-editar-parte.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/14-papelera-autorrelleno.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
+<script>var APP_BUILD_ID = 'build-2026-10-25e-v3-botones-atras-inicio';</script>
+<script src="js/01-base.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/02-clientes.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/03-almacen-agenda.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/04-catalogo-tecnicos.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/05-catalogo-pantallas.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/06-inicio-estadisticas.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/07-generar-parte.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/08-pdf.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/09-certificacion-asignacion.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/10-materiales.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/11-calculos-utilidades.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/12-leer-orden.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/13-editar-parte.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/14-papelera-autorrelleno.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
 
 <!-- DIÁLOGO NOMBRE -->
 <div class="dlg" id="dlgNombre">
@@ -812,18 +812,18 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script src="js/00b-service-worker.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
+<script src="js/00b-service-worker.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
 <!-- Firebase compat — al final para garantizar carga -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/15-firebase-inicio.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/16-conexion.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/17-sesion-sincronizacion.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/19-copias-seguridad.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/20-horas-adicionales.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
-<script src="js/22-recuperar-pantalla.js?v=build-2026-10-25d-v3-pdf-igual-pantalla"></script>
+<script src="js/15-firebase-inicio.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/16-conexion.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/17-sesion-sincronizacion.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/19-copias-seguridad.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/20-horas-adicionales.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
+<script src="js/22-recuperar-pantalla.js?v=build-2026-10-25e-v3-botones-atras-inicio"></script>
 <!-- DIÁLOGO PIN CAMBIO ROL -->
 <div class="dlg" id="dlgCambioRol">
   <div class="dlg-box" style="max-width:320px;">

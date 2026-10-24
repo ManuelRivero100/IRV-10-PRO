@@ -14,7 +14,7 @@ function catNavRender(){
 }
 
 function catNavRenderSecciones(g){
-  var html='<button class="back" onclick="catVolverFamilias()">&#8592; Grupos</button>';
+  var html='<div class="navrow"><button class="back" onclick="catVolverFamilias()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo(\'w-clientes\')">&#8962; Inicio</button></div>';
   html+='<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:12px;">'+g.ico+' '+g.nombre+'</div>';
 
   // Materiales flotantes pendientes de clasificar en este grupo
@@ -152,7 +152,7 @@ function catNavEntrarSec(si){
 function catNavRenderMateriales(g){
   var si=_catNav.secIdx;
   var sec=g.secciones[si]; if(!sec) return;
-  var html='<button class="back" onclick="catNavVolverSecs()">&#8592; '+g.nombre+'</button>';
+  var html='<div class="navrow"><button class="back" onclick="catNavVolverSecs()">&#8592; Atr&aacute;s</button><button class="back" onclick="goTo(\'w-clientes\')">&#8962; Inicio</button></div>';
   html+='<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:12px;">'+sec.nombre+'</div>';
 
   // Subsecciones

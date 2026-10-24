@@ -90,7 +90,7 @@ function horasMostrar(v){
   $('horasEquipo').style.display = v==='equipo' ? 'block' : 'none';
   $('horasControl').style.display = v==='control' ? 'block' : 'none';
   $('horasTab').style.display = v==='tab' ? 'block' : 'none';
-  $('hBack').innerHTML = (v==='menu' || v==='menuAdmin') ? '&#8592; Inicio' : '&#8592; Volver';
+  $('hInicio').style.display = (v==='menu' || v==='menuAdmin') ? 'none' : '';   // en el menú, "Atrás" ya lleva al inicio
   if(v==='tab'){
     _horasTabSel={nivel:'menu', id:null};
     horasRenderTab();
@@ -610,7 +610,6 @@ function _horasEqDiaHTML(r, todo){
 
 function horasRenderEquipo(){
   var cont=$('hEquipoLista'), tit=$('hEquipoTitulo'), todo=_horasEquipoDatos, e=_horasEq, h='';
-  $('hBack').innerHTML='&#8592; Volver';
   if(todo===null){
     tit.textContent='\u{1F465} Equipo';
     cont.innerHTML='<p style="font-size:.85rem;color:var(--text2);margin:0;">Consultando…</p>';
@@ -756,7 +755,6 @@ function horasCtlSem(i){ _horasCtl.sem=i; horasRenderControl(); window.scrollTo(
 
 function horasRenderControl(){
   var cont=$('hControlLista'), tit=$('hControlTitulo'), todo=_horasCtlDatos, e=_horasCtl, h='';
-  $('hBack').innerHTML='&#8592; Volver';
   if(todo===null){
     tit.textContent='\u{1F5D3}️ Control horario';
     cont.innerHTML='<p style="font-size:.85rem;color:var(--text2);margin:0;">Consultando…</p>';
@@ -878,7 +876,6 @@ function horasTabIr(nivel, id){ _horasTabSel={nivel:nivel, id:id||null}; horasRe
 
 function horasRenderTab(){
   var cont=$('hTabCuerpo'), tit=$('hTabTitulo'), s=_horasTabSel, d=_horasTabDatos, h='', hoyS=hoy();
-  $('hBack').innerHTML='&#8592; Volver';
   if(s.nivel==='menu'){
     tit.textContent='\u{1F4B6} Tabulador';
     cont.innerHTML='<div class="hist-opts">'

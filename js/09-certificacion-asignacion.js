@@ -363,7 +363,7 @@ function verParteSinGuardarAviso(id){
       + (d.detalle||'')
       + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="_terminarDeGuardarParte(\''+id+'\')">&#9989; Terminar de guardar</button>'
       + '<button class="btn btn-d btn-full" style="margin-top:8px;" onclick="_descartarParteSinGuardar(\''+id+'\')">&#128465;&#65039; Descartar</button>'
-      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Volver</button>';
+      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
     $('consultaAsgBody').innerHTML = html;
     document.querySelectorAll('.win').forEach(function(w){w.classList.remove('active');});
     $('w-consultaAsg').classList.add('active');
@@ -431,7 +431,7 @@ function verAsgAdminAviso(id, clienteId) {
       + (d.descripcion?'<div class="rrow obs-row"><span class="rc">Descripci&oacute;n</span><span class="rl">'+d.descripcion.replace(/\n/g,'<br>')+'</span><span class="rv"></span></div>':'')
       + '</div>'
       + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="verAsgAdminReasignar(\''+clienteId+'\',\''+id+'\')">&#128260; Ver / reasignar</button>'
-      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Volver</button>';
+      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
     $('consultaAsgBody').innerHTML = html;
     goTo('w-consultaAsg');
   });
@@ -463,7 +463,7 @@ function verSolicitudReabrir(id) {
       + '</div>'
       + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="ejecutarSolicitudReabrir(\''+id+'\')">&#128275; Reabrir y asignar a '+tec+'</button>'
       + '<button class="btn btn-d btn-full" style="margin-top:8px;" onclick="rechazarSolicitudReabrir(\''+id+'\')">&#10005; Rechazar</button>'
-      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Volver</button>';
+      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
     $('consultaAsgBody').innerHTML = html;
     goTo('w-consultaAsg');
     // vistaAdmin ya NO se marca aquí, solo al mirar — se queda pendiente hasta que se
@@ -541,7 +541,7 @@ function consultarAsgTec() {
     + (d.km?'<div class="rrow info-row"><span class="rc">Km</span><span class="rl">'+d.km+'</span><span class="rv"></span></div>':'')
     + (d.tr?'<div class="rrow info-row"><span class="rc">Despl.</span><span class="rl">'+d.tr+' min</span><span class="rv"></span></div>':'')
     + (d.descripcion?'<div class="rrow obs-row"><span class="rc">Descripci&oacute;n</span><span class="rl">'+d.descripcion.replace(/\n/g,'<br>')+'</span><span class="rv"></span></div>':'')
-    + '</div><button class="btn btn-s btn-full" onclick="goTo(\'w-clientes\')">&#8592; Volver</button>';
+    + '</div><button class="btn btn-s btn-full" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
   document.querySelectorAll('.win').forEach(function(w){w.classList.remove('active');});
   $('w-consultaAsg').classList.add('active');
   $('consultaAsgBody').innerHTML = html;
