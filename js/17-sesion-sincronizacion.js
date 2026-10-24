@@ -29,6 +29,9 @@ function _limpiarDatosLocalesCompartidos(){
 // dependen del rol final (clientes, técnicos, catálogo, agenda, registro global) — así
 // ese tiempo se aprovecha mientras el usuario ve la presentación o elige su rol.
 var _loginSplashListo = false;
+// _aplicarSesion la deja apuntando a su "retirar la presentación si ya está todo listo". Al terminar la presentación se llama
+// por si las descargas acabaron antes: sin esto, la capa del logo se quedaba tapando la app hasta tocarla.
+var _ocultarSplashPendiente = null;
 
 // Al terminar la presentación, si el usuario todavía tiene que elegir su rol, se retira la capa del logo para
 // que se vea el selector sin tocar nada. Si no hay selector pendiente, la capa se retira sola más adelante
@@ -69,7 +72,7 @@ function _iniciarPresentacionLogin(nombre){
   if (nombreKey) localStorage.setItem(DISPOSITIVO_USUARIO_KEY, nombreKey);
   localStorage.setItem(ULTIMA_VERIFICACION_KEY, hoy);
   _loginSplashListo = false;
-  iniciarSplash(function(){ _loginSplashListo = true; _retirarPresentacionSiEligeRol(); });
+  iniciarSplash(function(){ _loginSplashListo = true; _retirarPresentacionSiEligeRol(); if (_ocultarSplashPendiente) _ocultarSplashPendiente(); });
   _sincronizarAlEntrar();
 }
 
@@ -100,7 +103,7 @@ function _loginSinConexionContinuar() {
   // Ya se sabe con certeza que no hay conexión — solo la presentación local, sin
   // intentar ninguna sincronización de red (que no tiene sentido y solo haría esperar)
   _loginSplashListo = false;
-  iniciarSplash(function(){ _loginSplashListo = true; });
+  iniciarSplash(function(){ _loginSplashListo = true; if (_ocultarSplashPendiente) _ocultarSplashPendiente(); });
   _entrarConRol(_loginPendienteNombre, 'tecnico');
 }
 
@@ -334,6 +337,7 @@ function _aplicarSesion(nombre, rol, multiRol) {
     renderHistTecBtns();
     catActualizarBadge();
   }
+  _ocultarSplashPendiente = _ocultarSplashSiListo;
   var _syncPartesYaResuelto = false;
   function _ocultarOverlay() {
     if (_syncPartesYaResuelto) return; // ya se resolvió (a tiempo, o por la salvaguarda) — no repetir
@@ -394,7 +398,11 @@ function _iniciarActualizacionPeriodica(){
     if (typeof _db !== 'undefined' && _db) {
       var _docIdActivo = _s2.nombre.toLowerCase().replace(/ /g,'_');
       _db.collection('usuario').doc(_docIdActivo).get().catch(function(e){
-        if (e && e.code === 'permission-denied') { _limpiarDatosLocalesCompartidos(); cerrarSesion(); }
+        if (e && e.code === 'permission-denied') {
+          // Se cierra también la sesión de Firebase: si se conservara, el usuario desactivado podría volver a entrar sin conexión
+          _limpiarDatosLocalesCompartidos();
+          firebase.auth().signOut().then(cerrarSesion, cerrarSesion);
+        }
         else _fallo('_iniciarActualizacionPeriodica usuario.get')(e);
       });
     }

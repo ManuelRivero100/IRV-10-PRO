@@ -272,10 +272,8 @@ function _cargarPinesVisibles(){
 
 function renderCatTecnicos(){
   var el=$('catTecnicosList'); if(!el) return;
-  var tecs=getTecnicos().slice().sort(function(a,b){
-    var aInactivo = a.activo===false?1:0, bInactivo = b.activo===false?1:0;
-    return aInactivo - bInactivo; // activos primero, inactivos al final
-  });
+  // Sin reordenar: si al desactivar a un técnico su fila se fuera al final, la de abajo subiría a su sitio y el siguiente toque caería en otro técnico
+  var tecs=getTecnicos();
 
   if(!tecs.length){ el.innerHTML='<div style="font-size:.82rem;color:var(--text3);padding:10px 0;">No hay técnicos registrados.</div>'; return; }
   el.innerHTML=tecs.map(function(t){
@@ -353,7 +351,17 @@ function tecEditarPin(id, input){
 function tecToggleActivo(id, activarAhora){
   var tecs=getTecnicos();
   var t=tecs.find(function(t){return t.id===id;});
-  if(t){ t.activo=activarAhora; if(activarAhora) t.activoDesde=hoy(); setTecnicos(tecs); renderCatTecnicos(); _subirTecnicoAFirestore(t); }
+  if(!t) return;
+  var aplicar=function(){
+    t.activo=activarAhora; if(activarAhora) t.activoDesde=hoy(); setTecnicos(tecs); renderCatTecnicos(); _subirTecnicoAFirestore(t);
+  };
+  if(activarAhora){ aplicar(); return; }
+  // Desactivar: nunca a uno mismo (se quedaría sin acceso) y siempre confirmando el nombre
+  if(window._sesion && (window._sesion.nombre||'').toLowerCase()===(t.nombre||'').toLowerCase()){
+    alert('No puedes desactivarte a ti mismo: te quedarías sin acceso.');
+    return;
+  }
+  _confirmarApp('¿Desactivar a '+t.nombre+'? No podrá entrar a la app hasta que lo actives de nuevo.', aplicar);
 }
 
 function tecToggleMatFlotante(id, activarAhora){
