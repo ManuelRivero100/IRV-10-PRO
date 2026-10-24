@@ -221,7 +221,7 @@ function statsActualizar(){
     });
     var nc=Object.keys(cAct).length;
     if(nc>0){
-      if(bannerTxt) bannerTxt.textContent=nc+' centro'+(nc>1?'s':'')+' en ejecuci\u00f3n \u00b7 '+statsFmtH(hAct)+'h \u00b7 '+Math.round(kAct)+' km pendientes de cierre';
+      if(bannerTxt) bannerTxt.textContent=nc+' centro'+(nc>1?'s':'')+' en ejecuci\u00f3n \u00b7 '+statsFmtH(hAct)+' \u00b7 '+Math.round(kAct)+' km pendientes de cierre';
       if(banner) banner.style.display='block';
     } else { if(banner) banner.style.display='none'; }
   } else { if(banner) banner.style.display='none'; }
