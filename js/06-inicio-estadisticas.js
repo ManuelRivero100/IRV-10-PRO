@@ -64,7 +64,14 @@ function statsRenderTecnicos(datos){
   }
   if(!tecs.length){ sec.style.display='none'; return; }
   sec.style.display='block';
-  list.innerHTML=tecs.sort().map(function(tec){
+  // Activos primero, desactivados (o que ya no estan en el catalogo) al final; dentro de cada grupo, por nombre.
+  var activosEst={};
+  getTecnicos().forEach(function(t){ if(t.activo!==false) activosEst[(t.nombre||'').toLowerCase()]=true; });
+  tecs.sort(function(a,b){
+    var ia=activosEst[a.toLowerCase()]?0:1, ib=activosEst[b.toLowerCase()]?0:1;
+    return ia!==ib ? ia-ib : (a<b?-1:a>b?1:0);
+  });
+  list.innerHTML=tecs.map(function(tec){
     var s=tecMap[tec]; var total=s.nor+s.ext+s.noc+s.fes;
     var fechas=s.fechas.filter(Boolean).sort();
     var f1=fechas[0]?fechas[0].split('-').reverse().join('/').slice(0,5):'';
