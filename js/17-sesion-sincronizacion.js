@@ -840,8 +840,10 @@ function renderAsgLista() {
       if(!_asgIncidenciasPorTec[nom]) _asgIncidenciasPorTec[nom]=[];
       _asgIncidenciasPorTec[nom].push(d);
     });
-    // Solo salen los técnicos que tienen incidencias asignadas: uno con cero no se muestra
-    var nombres = Object.keys(_asgIncidenciasPorTec).sort(function(a,b){
+    // No salen los técnicos sin "Llenar parte" (no reciben incidencias) ni, además, los que tienen cero incidencias
+    var _sinLlenarParte = {};
+    getTecnicos().forEach(function(t){ if(t.principal === false) _sinLlenarParte[t.nombre] = true; });
+    var nombres = Object.keys(_asgIncidenciasPorTec).filter(function(n){ return !_sinLlenarParte[n]; }).sort(function(a,b){
       return (_asgIncidenciasPorTec[b].length) - (_asgIncidenciasPorTec[a].length);
     });
     if(!nombres.length){ el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">No hay incidencias asignadas.</div>'; return; }
