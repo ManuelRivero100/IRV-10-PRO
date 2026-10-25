@@ -70,16 +70,19 @@ function _restaurarHist(c){
   if (!c || c.vista === 'histOpts') return;
   var enc = c.orden ? encodeURIComponent(c.orden.pedido) + '||' + encodeURIComponent(c.orden.centro) : null;
   var sec = c.sec || '';
-  // Primero la lista de la que se viene, para que "Volver" lleve a donde llevaba
+  // Primero la lista de la que se viene, para que "Atrás" lleve a donde llevaba (origen: de qué vista se abrió la orden)
+  var origen = '';
   if (c.vista === 'centrosView' || c.vista === 'incidenciasView' || sec === 'fin') {
     verCentros();
-    if (c.centro && c.vista !== 'centrosView' && c.vista !== 'resumenTotalView') verIncidenciasCentro(c.centro);
+    if (c.centro && c.vista !== 'centrosView' && c.vista !== 'resumenTotalView') { verIncidenciasCentro(c.centro); origen = 'incidencias'; }
   }
-  else if (sec.indexOf('tec_') === 0) verSecTecnico(sec.slice(4));
-  else if (sec === 'ej') verSec('ej');
-  if (c.vista === 'ordenView' && enc) verOrden(enc);
+  else if (sec.indexOf('tec_') === 0) { verSecTecnico(sec.slice(4)); origen = 'lista'; }
+  else if (sec === 'ej') { verSec('ej'); origen = 'lista'; }
+  // La orden se abre sola en la ventana: se ocultan las listas anteriores (si no, quedaban visibles a la vez) y se recuerda su origen
+  var abrirOrden = function(){ _ordenDesde = origen; histShow(['ordenView']); verOrden(enc); };
+  if (c.vista === 'ordenView' && enc) abrirOrden();
   else if (c.vista === 'parteView' && enc) {
-    verOrden(enc);
+    abrirOrden();
     var h = getH(), p = c.parte;
     var idx = p ? h.findIndex(function(r){ return r.fecha === p.fecha && r.centro === p.centro && r.pedido === p.pedido && (r.numParte || '') === p.numParte; }) : -1;
     if (idx >= 0) verParte(idx);
