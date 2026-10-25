@@ -166,7 +166,7 @@ function _idAcceso(nombre){ return nombre.trim().toLowerCase().replace(/ /g,'_')
 
 // ===== ÚLTIMO USUARIO DE ESTE DISPOSITIVO =====
 // Tras entrar bien se guarda solo el nombre (nunca el PIN) para que el acceso salga con el nombre ya puesto y solo haga
-// falta el PIN. Si se borra o se cambia una letra del nombre, se limpia todo (nombre y PIN) para escribir el de otra persona.
+// falta el PIN (el cursor no se mueve solo: el usuario toca el PIN cuando quiere). Si se borra o se cambia una letra del nombre, se limpia todo (nombre y PIN) para escribir el de otra persona.
 var ULTIMO_USUARIO_KEY = 'irv_ultimo_usuario';
 var _loginNombrePuesto = ''; // el nombre que se puso solo; vacío cuando el campo ya lo ha tocado el usuario
 
@@ -182,7 +182,6 @@ function _prepararNombreLogin(){
   if (!guardado) return;
   campo.value = guardado;
   _loginNombrePuesto = guardado;
-  pin.focus();
 }
 
 function _loginNombreEditado(ev){
