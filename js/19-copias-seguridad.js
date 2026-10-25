@@ -81,7 +81,7 @@ function _generarBackupCompleto(hoy, callback){
 function abrirBackups(){
   if(!(window._sesion && window._sesion.rol==='admin')) return;
   _verificarConexionFirestore(function(hayConexion){
-    if(!hayConexion){ alert('Necesitas conexión a internet para acceder a las copias de seguridad.'); return; }
+    if(!hayConexion){ _toast('Necesitas conexión a internet para acceder a las copias de seguridad.', _AVISO_ROJO); return; }
     goTo('w-backups');
     _verEstadoBackups();
   });

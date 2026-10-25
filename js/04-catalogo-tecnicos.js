@@ -234,7 +234,7 @@ function tecGuardar(){
     // El PIN se fija cuando la ficha ya está en el servidor
     fichaSubida.then(function(){ return _fijarPin(nom, pin); }).then(function(r){
       if(r.ok) _tecMarcarConPin(nuevoTec.id);
-      else alert('Técnico guardado, pero no se pudo fijar su PIN: '+_textoErrorPin(r.error)+' Ponlo de nuevo desde su ficha.');
+      else _toast('Técnico guardado, pero no se pudo fijar su PIN: '+_textoErrorPin(r.error)+' Ponlo de nuevo desde su ficha.', _AVISO_ROJO);
     });
   }
   $('tec-nombre').value=''; $('tec-tel').value=''; $('tec-pin').value=''; _tecJobs=[];
@@ -248,7 +248,7 @@ function tecGuardar(){
 function tecEliminar(id){
   var quien=getTecnicos().find(function(t){return t.id===id;});
   if(quien && window._sesion && (window._sesion.nombre||'').toLowerCase()===(quien.nombre||'').toLowerCase()){
-    alert('No puedes quitarte a ti mismo del listado: te quedarías sin acceso.');
+    _toast('No puedes quitarte a ti mismo del listado: te quedarías sin acceso.', _AVISO_ROJO);
     return;
   }
   _confirmarApp('¿Quitar a '+(quien?quien.nombre:'este técnico')+' del listado? Sus partes ya guardados se conservan, pero ya no podrá entrar.', function(){
@@ -352,12 +352,12 @@ function tecEditarNombre(id, nuevoNombre){
 function tecEditarPin(id, input){
   var pin = input.value.trim();
   if(!pin) return;
-  if(!/^\d{4}$/.test(pin)){ input.value=''; alert('El PIN debe tener 4 cifras.'); return; }
+  if(!/^\d{4}$/.test(pin)){ input.value=''; _toast('El PIN debe tener 4 cifras.', _AVISO_ROJO); return; }
   var t=getTecnicos().find(function(t){return t.id===id;});
   if(!t) return;
   _fijarPin(t.nombre, pin).then(function(r){
-    if(r.ok){ _tecMarcarConPin(id); alert('PIN de '+t.nombre+' guardado.'); }
-    else alert('No se pudo guardar el PIN: '+_textoErrorPin(r.error));
+    if(r.ok){ _tecMarcarConPin(id); _toast('PIN de '+t.nombre+' guardado.'); }
+    else _toast('No se pudo guardar el PIN: '+_textoErrorPin(r.error), _AVISO_ROJO);
   });
 }
 
@@ -371,7 +371,7 @@ function tecToggleActivo(id, activarAhora){
   if(activarAhora){ aplicar(); return; }
   // Desactivar: nunca a uno mismo (se quedaría sin acceso) y siempre confirmando el nombre
   if(window._sesion && (window._sesion.nombre||'').toLowerCase()===(t.nombre||'').toLowerCase()){
-    alert('No puedes desactivarte a ti mismo: te quedarías sin acceso.');
+    _toast('No puedes desactivarte a ti mismo: te quedarías sin acceso.', _AVISO_ROJO);
     return;
   }
   _confirmarApp('¿Desactivar a '+t.nombre+'? No podrá entrar a la app hasta que lo actives de nuevo.', aplicar);

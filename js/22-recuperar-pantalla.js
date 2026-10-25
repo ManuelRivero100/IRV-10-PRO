@@ -93,7 +93,7 @@ function _restaurarHist(c){
 
 // ----- Estadísticas -----
 function _capturarStats(){
-  return { cli: $('statsCliente') ? $('statsCliente').value : 'todos', periodo: _statsPeriodo, vista: _statsVista, activas: !!statsInclActivas() };
+  return { cli: $('statsCliente') ? $('statsCliente').value : 'todos', periodo: _statsPeriodo, vista: _statsVista, activas: !!statsInclActivas(), detalle: _statsDetalleActual };
 }
 function _restaurarStats(c){
   if (!c) return;
@@ -106,6 +106,7 @@ function _restaurarStats(c){
   if (bCon) bCon.classList.toggle('active', _statsVista === 'concepto');
   if (bCod) bCod.classList.toggle('active', _statsVista === 'codigo');
   statsActualizar();
+  if (c.detalle) statsVerDetalle(c.detalle); // el total que estaba abierto
 }
 
 // ----- Registro de horario -----

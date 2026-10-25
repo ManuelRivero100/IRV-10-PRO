@@ -1022,13 +1022,13 @@ function confirmarCambioRol() {
 function abrirCatalogo() {
   var rol = window._sesion && window._sesion.rol;
   if (rol !== 'admin') {
-    alert('Sin acceso. Solo administrador.'); return;
+    _toast('Sin acceso. Solo administrador.', _AVISO_ROJO); return;
   }
   // El catálogo se lee y se escribe directamente contra Firestore, sin copia local
   // intermedia — por eso hace falta conexión para entrar, igual que otras acciones de admin
   _verificarConexionFirestore(function(hayConexion){
     if (!hayConexion) {
-      alert('Necesitas conexión a internet para acceder al catálogo.');
+      _toast('Necesitas conexión a internet para acceder al catálogo.', _AVISO_ROJO);
       return;
     }
     goTo('w-catalogo');

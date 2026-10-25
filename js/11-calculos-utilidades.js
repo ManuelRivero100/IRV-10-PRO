@@ -118,12 +118,17 @@ function showMsg(id,txt,type){
   m.className='msg show '+type;
   setTimeout(function(){ m.className='msg'; },5000);
 }
+// Aviso con el estilo de la app (sustituye a las ventanas alert() del navegador). Verde por defecto; para errores y avisos, _AVISO_ROJO.
+// Dura más cuanto más largo es el mensaje, y un aviso nuevo sustituye al anterior.
+var _AVISO_ROJO='var(--red)';
 function _toast(msg, color){
+  var viejo=document.querySelector('.irv-toast'); if(viejo) viejo.remove();
   var t=document.createElement('div');
-  t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);max-width:88%;background:'+(color||'var(--green)')+';color:#fff;padding:10px 18px;border-radius:20px;font-size:.85rem;font-weight:600;z-index:999;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.3);';
+  t.className='irv-toast';
+  t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);max-width:88%;background:'+(color||'var(--green)')+';color:#fff;padding:10px 18px;border-radius:20px;font-size:.85rem;font-weight:600;z-index:10000;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.3);';
   t.textContent=msg;
   document.body.appendChild(t);
-  setTimeout(function(){ t.remove(); },3500);
+  setTimeout(function(){ t.remove(); }, Math.max(3500, Math.min(9000, String(msg).length*65)));
 }
 
 // ===== UTILS =====

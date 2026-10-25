@@ -2,7 +2,7 @@
 function abrirPapelera(){
   if(!(window._sesion && window._sesion.rol==='admin')) return;
   _verificarConexionFirestore(function(hayConexion){
-    if(!hayConexion){ alert('Necesitas conexión a internet para acceder a la papelera.'); return; }
+    if(!hayConexion){ _toast('Necesitas conexión a internet para acceder a la papelera.', _AVISO_ROJO); return; }
     goTo('w-papelera');
     _renderPapelera();
   });
@@ -30,7 +30,7 @@ function _renderPapelera(){
   }).catch(function(){ el.innerHTML='<p style="font-size:.85rem;color:var(--red);padding:10px 0;">Error al consultar la papelera.</p>'; });
 }
 function _restaurarDePapeleraUI(idPapelera){
-  _restaurarDePapelera(idPapelera).then(function(){ _renderPapelera(); }).catch(function(){ alert('No se pudo restaurar. Comprueba tu conexión e inténtalo de nuevo.'); });
+  _restaurarDePapelera(idPapelera).then(function(){ _renderPapelera(); }).catch(function(){ _toast('No se pudo restaurar. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
 }
 
 // Arranca la comprobación de versión automática, en el mismo bloque donde vive la función —

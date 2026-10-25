@@ -372,7 +372,7 @@ function dlgEditMatGuardar(){
   var gPrev=getCat().grupos.find(function(x){return x.id===_catState.grupoAb;});
   if(gPrev){ var secPrev=gPrev.secciones[siPrev]; if(secPrev){ var matsPrev=ssiPrev===-1?(secPrev.mats||[]):(secPrev.subsecs[ssiPrev]?secPrev.subsecs[ssiPrev].mats||[]:[]); if(matsPrev[miPrev]) viejoNomPrevio=matsPrev[miPrev].nom; } }
   if(viejoNomPrevio&&nuevoNom!==viejoNomPrevio&&todos.find(function(n){return n.toLowerCase()===nuevoNom.toLowerCase();})){
-    alert('"'+nuevoNom+'" ya existe.');return;
+    _toast('"'+nuevoNom+'" ya existe.', _AVISO_ROJO);return;
   }
   var viejoNomFinal='';
   _modificarCatalogoEnFirestore(function(cat){
@@ -650,17 +650,17 @@ function catGuardarNuevoSitioAgenda(clienteId){
   var id=_agDomId(clienteId);
   var nomEl=$('agNuevoNom_'+id);
   var nombre=nomEl?nomEl.value.trim():'';
-  if(!nombre){ alert('Introduce el nombre del centro.'); return; }
+  if(!nombre){ _toast('Introduce el nombre del centro.', _AVISO_ROJO); return; }
   var centro;
   if(esMerc){
     var centroEl=$('agNuevoCentro_'+id);
     centro=centroEl?centroEl.value.trim():'';
-    if(!centro){ alert('Introduce el número de centro.'); return; }
+    if(!centro){ _toast('Introduce el número de centro.', _AVISO_ROJO); return; }
   } else {
     centro=getNextCodLugar();
   }
   var key=agendaKey(clienteId,centro);
-  if(getAgenda()[key]){ alert('Ese centro ya existe en la agenda — edítalo desde su ficha en vez de crear uno nuevo.'); return; }
+  if(getAgenda()[key]){ _toast('Ese centro ya existe en la agenda — edítalo desde su ficha en vez de crear uno nuevo.', _AVISO_ROJO); return; }
   var data={
     clienteId:clienteId, centro:centro, tienda:nombre,
     dir:($('agNuevoDir_'+id)||{}).value ? $('agNuevoDir_'+id).value.trim() : '',

@@ -26,6 +26,7 @@ function parsearCodigos(detalle, roles){
 // =====================================================
 var _statsPeriodo = 'todo';
 var _statsVista = 'concepto';
+var _statsDetalleActual = ''; // total cuyo detalle está abierto (centros, horas…), para recuperarlo al recargar
 
 function fmtHStats(h){
   if(!h) return '-';
@@ -311,6 +312,7 @@ function statsRenderResumen(datos){
 }
 
 function statsVerDetalle(tipo){
+  _statsDetalleActual=tipo;
   var datos=statsFiltrar();
   var _os=statsGetOrdenEstados();
   var ia=statsInclActivas();
@@ -458,6 +460,7 @@ function statsVerDetalle(tipo){
 }
 
 function statsVolverMain(){
+  _statsDetalleActual='';
   var det=$('statsDetalle');
   var mains=document.querySelectorAll('#w-stats > *:not(#statsDetalle)');
   if(det)det.style.display='none';
@@ -467,7 +470,7 @@ function statsVolverMain(){
 function statsExportarPDF(){
   var datos=statsFiltrar();
   if(!datos.length){ showMsg('msgRes','Sin datos para exportar.','warn'); return; }
-  if(!window.jspdf){ alert('PDF no disponible.'); return; }
+  if(!window.jspdf){ _toast('PDF no disponible.', _AVISO_ROJO); return; }
   var doc=pdfNuevo();
   var y=12;
 
@@ -529,6 +532,6 @@ function statsCompartir(){
     +'Centros: '+Object.keys(centros).length+'  |  Incidencias: '+Object.keys(incs).length+'  |  Partes: '+datos.length+'\n'
     +'Horas: '+statsFmtH(horas)+'  |  Km: '+Math.round(km)+'  |  Dietas: '+dietas;
   if(navigator.share){navigator.share({text:txt});}
-  else{navigator.clipboard.writeText(txt).then(function(){alert('Copiado al portapapeles');});}
+  else{navigator.clipboard.writeText(txt).then(function(){_toast('Copiado al portapapeles');});}
 }
 

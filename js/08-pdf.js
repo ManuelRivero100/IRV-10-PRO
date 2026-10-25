@@ -401,7 +401,7 @@ function pdfFilaParte(doc,y,el,texto){
 
 // PDF del parte: es la pantalla del parte (parteCuerpoHTML) sin los botones, elemento a elemento y en el mismo orden
 function pdfDesde(r){
-  if(!window.jspdf){ alert('PDF no disponible.'); return; }
+  if(!window.jspdf){ _toast('PDF no disponible.', _AVISO_ROJO); return; }
   var doc=pdfNuevo();
   var y=12;
   var cuerpo=document.createElement('div');
@@ -482,6 +482,6 @@ function compartirDesde(detalle,obsVal,matsText){
   if(obsVal){ lines.push(''); lines.push('Obs.: '+obsVal); }
   var texto=lines.join('\n').trim();
   if(navigator.share){ navigator.share({title:'Parte de Trabajo',text:texto}); }
-  else { navigator.clipboard.writeText(texto).then(function(){ alert('Texto copiado.'); }).catch(function(){ alert('No se pudo compartir.'); }); }
+  else { navigator.clipboard.writeText(texto).then(function(){ _toast('Texto copiado.'); }).catch(function(){ _toast('No se pudo compartir.', _AVISO_ROJO); }); }
 }
 

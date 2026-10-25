@@ -250,17 +250,18 @@ function compartirOrden(){
   }
   var texto=lines.join('\n');
   if(navigator.share){ try{ navigator.share({title:'Resumen '+ordenTitle,text:texto}); return; }catch(e){ if(e.name==='AbortError') return; } }
-  try{ navigator.clipboard.writeText(texto).then(function(){ alert("Copiado"); }); alert('Resumen copiado.'); }catch(e){ alert('No se pudo compartir.'); }
+  // Antes salían dos avisos seguidos ("Copiado" y "Resumen copiado."); ahora uno, cuando ya se ha copiado
+  try{ navigator.clipboard.writeText(texto).then(function(){ _toast('Resumen copiado.'); }).catch(function(){ _toast('No se pudo compartir.', _AVISO_ROJO); }); }catch(e){ _toast('No se pudo compartir.', _AVISO_ROJO); }
 }
 
 function compartirResumenCentro(){
   var tit=$('resumenCentroTitle').innerText,txt=$('resumenCentroContent').innerText;
-  navigator.clipboard.writeText(tit+' - '+txt).then(function(){alert('Copiado.');}).catch(function(){alert('No se pudo copiar.');});
+  navigator.clipboard.writeText(tit+' - '+txt).then(function(){_toast('Copiado.');}).catch(function(){_toast('No se pudo copiar.', _AVISO_ROJO);});
 }
 
 function compartirResumenTotal(){
   var txt=$('resumenTotalContent').innerText;
-  navigator.clipboard.writeText('RESUMEN TOTAL - '+txt).then(function(){alert('Copiado.');}).catch(function(){alert('No se pudo copiar.');});
+  navigator.clipboard.writeText('RESUMEN TOTAL - '+txt).then(function(){_toast('Copiado.');}).catch(function(){_toast('No se pudo copiar.', _AVISO_ROJO);});
 }
 
 function guardarConEstado(estado){
@@ -619,7 +620,7 @@ function _cerrarAvisoKmAdicObligatoria(){
 // PDF del resumen de la orden: es la pantalla de la orden (lista de datos _ordenActual.resumen) sin los botones
 function pdfOrden(){
   var o=window._ordenActual; if(!o) return;
-  if(!window.jspdf){ alert('PDF no disponible.'); return; }
+  if(!window.jspdf){ _toast('PDF no disponible.', _AVISO_ROJO); return; }
   var m=o.resumen;
   var doc=pdfNuevo();
   var y=12;
