@@ -746,7 +746,7 @@ function abrirAsignar() {
   $('asgJobTgl').innerHTML = jobs.map(function(j){
     return '<button onclick="setAsgJob(\''+j+'\',this)">'+j+'</button>';
   }).join('');
-  var tecs = getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin; });
+  var tecs = _tecnicosAsignables();
   $('asgTecTgl').innerHTML = tecs.length ? tecs.map(function(t){
     return '<button onclick="setAsgTec(\''+t.nombre.replace(/\'/g,"\\'")+'\',this)">'+t.nombre+'</button>';
   }).join('') : '<div style="color:var(--text2);font-size:.82rem;padding:6px;">No hay técnicos activos en el catálogo.</div>';
@@ -821,13 +821,18 @@ function guardarAsignacion() {
   }
 }
 
+// Técnicos a los que se puede asignar una incidencia: activos, con PIN y que llenan partes. Quien no tiene "Llenar parte" marcado
+// en el catálogo solo ve Estadísticas y Registro de horario, así que no recibe incidencias.
+function _tecnicosAsignables(){
+  return getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin && t.principal !== false; });
+}
+
 var _asgIncidenciasPorTec = {};
 function renderAsgLista() {
   var el = $('asgLista'); if (!el || !curCliente) return;
   el.innerHTML = '<div style="color:var(--text2);font-size:.82rem;">Cargando...</div>';
   _consultarIncidenciasAbiertas(curCliente.id).then(function(snap){
     var b=$('asgBadge'); if(b){ b.textContent=snap.size; b.style.display=snap.size>0?'block':'none'; }
-    var tecs = getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin; });
     _asgIncidenciasPorTec = {};
     snap.forEach(function(doc){
       var d = Object.assign({id: doc.id}, doc.data());
@@ -835,12 +840,11 @@ function renderAsgLista() {
       if(!_asgIncidenciasPorTec[nom]) _asgIncidenciasPorTec[nom]=[];
       _asgIncidenciasPorTec[nom].push(d);
     });
-    // Asegurar que aparezcan también los técnicos sin ninguna incidencia
-    tecs.forEach(function(t){ if(!_asgIncidenciasPorTec[t.nombre]) _asgIncidenciasPorTec[t.nombre]=[]; });
+    // Solo salen los técnicos que tienen incidencias asignadas: uno con cero no se muestra
     var nombres = Object.keys(_asgIncidenciasPorTec).sort(function(a,b){
       return (_asgIncidenciasPorTec[b].length) - (_asgIncidenciasPorTec[a].length);
     });
-    if(!nombres.length){ el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">Sin técnicos en el catálogo.</div>'; return; }
+    if(!nombres.length){ el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">No hay incidencias asignadas.</div>'; return; }
     var html='';
     nombres.forEach(function(nom){
       var cant=_asgIncidenciasPorTec[nom].length;
@@ -864,7 +868,7 @@ function _renderAsgTecGrupoBody(nom){
     return (b.fechaCreacion||0)-(a.fechaCreacion||0);
   });
   if(!lista.length) return '<div style="color:var(--text2);font-size:.82rem;">Sin incidencias asignadas.</div>';
-  var tecs = getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin; });
+  var tecs = _tecnicosAsignables();
   var html='';
   lista.forEach(function(d){
     var estLabel = {pendiente:'⏳ Pendiente', 'en-ejecucion':'🔧 En ejecución', terminado:'✅ Terminado'}[d.estado]||d.estado;
