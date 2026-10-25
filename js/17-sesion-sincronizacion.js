@@ -1,6 +1,7 @@
 
 var _loginPendienteNombre = '';
 var _loginPendienteRol = '';
+var _loginPendienteMultiRol = false;
 
 // Aislamiento de datos por usuario en dispositivos compartidos: el historial, registro
 // global, catálogo y agenda son un único almacén por dispositivo, no separado por quién
@@ -104,7 +105,9 @@ function _loginSinConexionContinuar() {
   // intentar ninguna sincronización de red (que no tiene sentido y solo haría esperar)
   _loginSplashListo = false;
   iniciarSplash(function(){ _loginSplashListo = true; if (_ocultarSplashPendiente) _ocultarSplashPendiente(); });
-  _entrarConRol(_loginPendienteNombre, 'tecnico');
+  _entrarConRol(_loginPendienteNombre, 'tecnico', _loginPendienteMultiRol);
+  // Sin conexión no se puede cambiar a admin: el botón Admin se oculta y reaparece solo cuando la comprobación periódica confirma que hay internet
+  if (_loginPendienteMultiRol) setTimeout(function(){ var b = document.getElementById('btnCambiarRol'); if (b) b.style.display = 'none'; }, 50);
 }
 
 // Diálogo de confirmación con el estilo propio de la app, en vez del confirm() nativo
@@ -146,9 +149,10 @@ function _continuarComoTecnicoPorDesconexion(){
   goTo('w-clientes');
 }
 
-function _mostrarSinConexion(nombre, rol) {
+function _mostrarSinConexion(nombre, rol, esAdmin) {
   _loginPendienteNombre = nombre;
   _loginPendienteRol = rol;
+  _loginPendienteMultiRol = !!esAdmin; // un admin que entra sin internet como técnico sigue teniendo dos roles: el botón Admin vuelve al reconectar
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('loginRolSel').style.display = 'none';
   document.getElementById('loginSinConexion').style.display = 'block';
@@ -298,7 +302,7 @@ function _entrarSinConexion(nombre, pin, msgEl) {
     _guardarUltimoUsuario(local.nombre);
     if (local.roles.indexOf('admin') >= 0) {
       msgEl.textContent = '';
-      _mostrarSinConexion(local.nombre, 'tecnico');
+      _mostrarSinConexion(local.nombre, 'tecnico', true);
     } else {
       _iniciarPresentacionLogin(local.nombre);
       _entrarConRol(local.nombre, 'tecnico');
@@ -509,6 +513,12 @@ function _iniciarActualizacionPeriodica(){
     } else {
       if (_timerSincronizacion) { clearTimeout(_timerSincronizacion); _timerSincronizacion = null; }
     }
+  });
+
+  // Al recuperar la conexión el dispositivo (salir del modo avión, volver la cobertura): sincronizar enseguida en vez de esperar
+  // al siguiente ciclo — así vuelve el botón Admin y se actualizan los datos. Un pequeño margen para que la red se estabilice.
+  window.addEventListener('online', function(){
+    setTimeout(function(){ if (window._sesion && document.visibilityState === 'visible') _sincronizacionCompleta(); }, 1500);
   });
 
   // Arranque inicial: si la app ya está visible al llamar esta función, programa el
