@@ -220,7 +220,7 @@ var _navPendiente=false;
 function _navProgramar(){
   if(_navPendiente) return;
   _navPendiente=true;
-  requestAnimationFrame(function(){ _navPendiente=false; _navSincronizar(); });
+  setTimeout(function(){ _navPendiente=false; _navSincronizar(); },30);   // un temporizador y no requestAnimationFrame: éste se pausa con la página en segundo plano
 }
 function _navIniciar(){
   _navSincronizar();
