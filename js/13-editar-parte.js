@@ -179,9 +179,13 @@ function parteCuerpoHTML(r){
     (function(){ var _obsCompl=observacionesCompletas(r); return _obsCompl?('<div class="divider"></div><div class="rrow obs-row" style="height:auto"><span class="rc" style="align-self:flex-start;padding-top:8px">Obs.</span><span class="rl" style="white-space:pre-wrap;word-break:break-word;height:auto;flex:1">'+escHtml(_obsCompl)+'</span></div>'):''; })();
 }
 
+// Pantalla desde la que se abrió el parte cuando no es el historial (Estadísticas): "Atrás" del parte vuelve allí.
+var _parteVolverA='';
 function verParte(idx){
   _parteIdxActual=idx;
-  $('ordenView').style.display='none'; $('parteView').style.display='block';
+  var activa=document.querySelector('.win.active');
+  if(activa && activa.id!=='w-hist'){ _parteVolverA=activa.id; goToRaw('w-hist'); histShow(['parteView']); }   // el parte vive en la ventana del historial
+  else { _parteVolverA=''; $('ordenView').style.display='none'; $('parteView').style.display='block'; }
   var all=getH(); var r=all[idx]; if(!r) return;
   var matHTML='';
   $('parteBody').innerHTML=
@@ -361,7 +365,14 @@ function volverHistOpts(){ $('histOpts').style.display='block'; $('secView').sty
 
 function volverIncidencias(){histShow(['incidenciasView']);}
 
-function volverOrden(){ $('parteView').style.display='none'; $('ordenView').style.display='block'; }
+function volverOrden(){
+  $('parteView').style.display='none';
+  if(_parteVolverA){ var w=_parteVolverA; _parteVolverA=''; goToRaw(w); return; }
+  $('ordenView').style.display='block';
+}
+
+// "Atrás" de la ventana del historial: al menú del cliente del que se viene (o al inicio si no hay cliente abierto)
+function histAtras(){ goTo(curCliente ? 'w-menu' : 'w-clientes'); }
 
 // "Atrás" de la orden: vuelve a la vista desde la que se abrió (_ordenDesde la fija verOrden/selIncidencia).
 // Si no se sabe de dónde viene (búsqueda, aviso, sesión recuperada), va al Historial en vez de a una lista vacía.

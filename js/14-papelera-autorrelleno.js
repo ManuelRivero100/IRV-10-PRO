@@ -36,7 +36,9 @@ function borrarParteOk(i){
     var docId=((r.clienteId||'mercadona')+'_'+r.fecha+'_'+r.centro+'_'+r.pedido).replace(/[\/\s]/g,'-');
     _moverAPapelera('partes', docId, 'Borrado manual').catch(function(){ _marcarParteBorrarPendiente(docId, 'Borrado manual'); });
   }
-  h.splice(i,1); setH(h); volverSec(); verSec(_secActual);
+  h.splice(i,1); setH(h);
+  if(_parteVolverA){ var w=_parteVolverA; _parteVolverA=''; histShow(['histOpts']); goToRaw(w); if(w==='w-stats') statsActualizar(); return; }   // se borró desde Estadísticas: se vuelve allí
+  volverSec(); verSec(_secActual);
 }
 
 function fT(m){ return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2); }
