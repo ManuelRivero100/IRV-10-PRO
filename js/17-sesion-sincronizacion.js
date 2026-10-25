@@ -164,6 +164,39 @@ var ACCESO_LOCAL_KEY = 'irv_acceso_local';
 // Mismo criterio que el servidor y que el resto de la app: "Manuel Rivero" -> "manuel_rivero"
 function _idAcceso(nombre){ return nombre.trim().toLowerCase().replace(/ /g,'_'); }
 
+// ===== ÚLTIMO USUARIO DE ESTE DISPOSITIVO =====
+// Tras entrar bien se guarda solo el nombre (nunca el PIN) para que el acceso salga con el nombre ya puesto y solo haga
+// falta el PIN. Si se borra o se cambia una letra del nombre, se limpia todo (nombre y PIN) para escribir el de otra persona.
+var ULTIMO_USUARIO_KEY = 'irv_ultimo_usuario';
+var _loginNombrePuesto = ''; // el nombre que se puso solo; vacío cuando el campo ya lo ha tocado el usuario
+
+function _guardarUltimoUsuario(nombre){
+  try { localStorage.setItem(ULTIMO_USUARIO_KEY, nombre); } catch(e) { _fallo('_guardarUltimoUsuario')(e); }
+}
+
+function _prepararNombreLogin(){
+  var campo = document.getElementById('loginNombre'), pin = document.getElementById('loginPin');
+  if (!campo || !pin) return;
+  var guardado = '';
+  try { guardado = localStorage.getItem(ULTIMO_USUARIO_KEY) || ''; } catch(e) { _fallo('_prepararNombreLogin')(e); }
+  if (!guardado) return;
+  campo.value = guardado;
+  _loginNombrePuesto = guardado;
+  pin.focus();
+}
+
+function _loginNombreEditado(ev){
+  if (!_loginNombrePuesto) return;
+  _loginNombrePuesto = '';
+  var campo = document.getElementById('loginNombre');
+  // Si lo que hizo fue escribir una letra, esa letra es el principio del nombre nuevo; borrar o pegar deja todo vacío
+  var tipo = (ev && ev.inputType) || '';
+  campo.value = (tipo.indexOf('insert') === 0 && tipo !== 'insertFromPaste' && ev.data) ? ev.data : '';
+  document.getElementById('loginPin').value = '';
+  document.getElementById('loginMsg').textContent = '';
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _prepararNombreLogin); else _prepararNombreLogin();
+
 function _bytesAHex(bytes){
   return Array.prototype.map.call(bytes, function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
 }
@@ -244,6 +277,7 @@ function _entrarConPermiso(nombre, pin, datos, msgEl) {
   firebase.auth().signInWithCustomToken(datos.token).then(function() {
     var nombreFicha = datos.nombre || nombre;
     _guardarAccesoLocal(_idAcceso(nombre), nombreFicha, pin, datos.roles);
+    _guardarUltimoUsuario(nombreFicha);
     _iniciarPresentacionLogin(nombreFicha);
     if (datos.roles.length > 1) { _mostrarSelectorRol(nombreFicha, datos.roles); }
     else { _entrarConRol(nombreFicha, datos.roles[0]); }
@@ -262,6 +296,7 @@ function _entrarSinConexion(nombre, pin, msgEl) {
   }
   _huellaPin(pin, local.sal).then(function(hash) {
     if (hash !== local.hash) { msgEl.textContent = 'PIN incorrecto.'; return; }
+    _guardarUltimoUsuario(local.nombre);
     if (local.roles.indexOf('admin') >= 0) {
       msgEl.textContent = '';
       _mostrarSinConexion(local.nombre, 'tecnico');
