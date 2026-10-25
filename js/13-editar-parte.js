@@ -421,6 +421,10 @@ function _subirParteAFirestore(parte, razon){
       fechaModificacion: Date.now(),
       ultimaModificacionRazon: razon||'Parte nuevo'
     });
+    delete datos._pendienteSync; // marca solo local: no debe viajar al servidor (volvería a los móviles como "pendiente" para siempre)
+    // Se marca pendiente ANTES de subir: sin cobertura la subida no falla, se queda esperando, y si la app se cierra antes de que
+    // vuelva la red el parte solo se salva (y se reintenta al volver a entrar) si ya consta como pendiente. Al confirmarse se desmarca.
+    _marcarPendienteSync(parte, true);
     _db.collection('partes').doc(docId).set(datos, {merge:true}).then(function(){
       _marcarPendienteSync(parte, false);
     }).catch(function(){

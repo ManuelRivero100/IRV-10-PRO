@@ -661,20 +661,25 @@ function _sincronizarPartesDesdeFirestore(soloTecnico, callback) {
     var _tec = getTecnicos().find(function(t){ return t.nombre.toLowerCase() === soloTecnico.toLowerCase(); });
     if (_tec) soloTecnico = _tec.nombre;
     // Descargar partes como principal Y como ayudante
-    var h = getH();
     var pendientes = 2;
-    function _done() {
+    var snaps = [];
+    // El historial local se lee al terminar las dos consultas, no antes: si el técnico guardaba un parte mientras
+    // tanto (mala señal), escribir una copia leída al empezar lo pisaba.
+    function _done(snap) {
+      if (snap) snaps.push(snap);
       pendientes--;
       if (pendientes === 0) {
+        var h = getH();
+        snaps.forEach(function(s){ _procesarSnap(s, h); });
         setH(h);
         if(callback) callback(); else { renderClientes(); refreshCounts(); renderAsgTecnico(); }
       }
     }
     _db.collection('partes').where('tecnicoPrincipal','==',soloTecnico).get().then(function(snap){
-      _procesarSnap(snap, h); _done();
+      _done(snap);
     }).catch(function(){ _done(); });
     _db.collection('partes').where('tecnicos','array-contains',soloTecnico).get().then(function(snap){
-      _procesarSnap(snap, h); _done();
+      _done(snap);
     }).catch(function(){ _done(); });
   } else {
     _db.collection('partes').get().then(function(snap){
@@ -773,11 +778,11 @@ function abrirAsignar() {
   $('asgFieldCentro').style.display = esMerc ? 'block' : 'none';
   var jobs = curCliente.jobs||['Conductos','Climatización','Obras'];
   $('asgJobTgl').innerHTML = jobs.map(function(j){
-    return '<button onclick="setAsgJob(\''+j+'\',this)">'+j+'</button>';
+    return '<button onclick="setAsgJob(\''+j+'\',this)">'+escHtml(j)+'</button>';
   }).join('');
   var tecs = _tecnicosAsignables();
   $('asgTecTgl').innerHTML = tecs.length ? tecs.map(function(t){
-    return '<button onclick="setAsgTec(\''+t.nombre.replace(/\'/g,"\\'")+'\',this)">'+t.nombre+'</button>';
+    return '<button onclick="setAsgTec(\''+t.nombre.replace(/\'/g,"\\'")+'\',this)">'+escHtml(t.nombre)+'</button>';
   }).join('') : '<div style="color:var(--text2);font-size:.82rem;padding:6px;">No hay técnicos activos en el catálogo.</div>';
   goTo('w-asignar');
   renderAsgLista();
@@ -882,7 +887,7 @@ function renderAsgLista() {
       var key=nom.replace(/[^a-z0-9]/gi,'_');
       html += '<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;">'
         + '<button class="btn btn-s btn-full" style="justify-content:space-between;border-radius:0;" onclick="toggleCard(\'asgTecGrupo_'+key+'\',this)">'
-        + '<span>&#128119; '+nom+'</span>'
+        + '<span>&#128119; '+escHtml(nom)+'</span>'
         + '<span style="background:'+(cant>0?'var(--green)':'var(--border2)')+';color:#fff;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:20px;min-width:22px;text-align:center;">'+cant+'</span>'
         + '</button>'
         + '<div id="asgTecGrupo_'+key+'" style="display:none;padding:10px;">'
@@ -905,13 +910,13 @@ function _renderAsgTecGrupoBody(nom){
     var estLabel = {pendiente:'⏳ Pendiente', 'en-ejecucion':'🔧 En ejecución', terminado:'✅ Terminado'}[d.estado]||d.estado;
     var refs=[]; if(d.pedido) refs.push('Orden '+d.pedido); if(d.centro) refs.push('Centro '+d.centro);
     html += '<div class="card" style="margin-bottom:8px;">'
-      +'<div style="font-weight:700;font-size:.9rem;">'+d.tienda+'</div>'
-      +(refs.length?'<div style="font-size:.78rem;color:var(--text2);">'+refs.join(' · ')+'</div>':'')
-      +'<div style="font-size:.78rem;color:var(--text2);margin-top:2px;">'+d.job+' · '+estLabel+'</div>';
+      +'<div style="font-weight:700;font-size:.9rem;">'+escHtml(d.tienda)+'</div>'
+      +(refs.length?'<div style="font-size:.78rem;color:var(--text2);">'+escHtml(refs.join(' · '))+'</div>':'')
+      +'<div style="font-size:.78rem;color:var(--text2);margin-top:2px;">'+escHtml(d.job)+' · '+estLabel+'</div>';
     html += '<div style="margin-top:8px;"><label style="font-size:.75rem;color:var(--text2);font-weight:700;">Reasignar a:</label>'
       +'<select onchange="reasignarIncidencia(\''+d.id+'\',this.value)" style="width:100%;margin-top:4px;padding:6px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;">'
       +'<option value="">-- mantener --</option>'
-      +tecs.filter(function(t){ return t.nombre !== d.tecnicoPrincipal; }).map(function(t){return '<option value="'+t.nombre.replace(/"/g,'')+'">'+t.nombre+'</option>';}).join('')
+      +tecs.filter(function(t){ return t.nombre !== d.tecnicoPrincipal; }).map(function(t){return '<option value="'+escHtml(t.nombre)+'">'+escHtml(t.nombre)+'</option>';}).join('')
       +'</select></div>'
       +'<button class="btn btn-d btn-sm" style="margin-top:8px;" onclick="eliminarIncidencia(\''+d.id+'\')">&#128465; Eliminar</button>';
     html += '</div>';
@@ -923,12 +928,19 @@ function reasignarIncidencia(id, nuevoTec) {
   if (!nuevoTec) return;
   _db.collection('incidencias').doc(id).update(Object.assign({ tecnicoPrincipal: nuevoTec, vista:false }, _marcaModificacion('Reasignada a otro técnico'))).then(function(){
     renderAsgLista();
+  }).catch(function(e){
+    _fallo('reasignarIncidencia')(e);
+    _toast('No se pudo reasignar la incidencia. Inténtalo de nuevo.', _AVISO_ROJO);
+    renderAsgLista();
   });
 }
 
 function eliminarIncidencia(id) {
   _confirmarApp('¿Eliminar esta incidencia asignada?', function(){
-    _moverAPapelera('incidencias', id, 'Eliminada desde Asignar incidencia').then(function(){ renderAsgLista(); });
+    _moverAPapelera('incidencias', id, 'Eliminada desde Asignar incidencia').then(function(){ renderAsgLista(); }).catch(function(e){
+      _fallo('eliminarIncidencia')(e);
+      _toast('No se pudo eliminar la incidencia. Inténtalo de nuevo.', _AVISO_ROJO);
+    });
   });
 }
 
