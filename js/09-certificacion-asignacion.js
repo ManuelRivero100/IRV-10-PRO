@@ -416,8 +416,6 @@ function verAsgAdminAviso(id, clienteId) {
   _db.collection('incidencias').doc(id).get().then(function(doc){
     if (!doc.exists) return;
     var d = doc.data();
-    // vistaAdmin ya NO se marca aquí, solo al mirar — se queda pendiente hasta que de
-    // verdad se resuelve (pulsando "Ver / reasignar"), igual que "material flotante".
     var refs=[]; if(d.pedido) refs.push('Orden '+d.pedido); if(d.centro) refs.push('Centro '+d.centro);
     var html = '<div class="card"><div class="card-title">&#128229; '+(d.tienda||'')+'</div>'
       + (d.verificarDatos?'<div class="rrow info-row" style="color:var(--amber);font-weight:600;"><span class="rc">&#9888;&#65039; Aviso</span><span class="rl">Datos por lectura autom&aacute;tica — verificar y validar</span><span class="rv"></span></div>':'')
@@ -434,11 +432,12 @@ function verAsgAdminAviso(id, clienteId) {
       + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
     $('consultaAsgBody').innerHTML = html;
     goTo('w-consultaAsg');
+    // El aviso se da por visto en cuanto se abre: al volver al inicio ya no sale (antes seguía hasta entrar en Asignar)
+    _db.collection('incidencias').doc(id).update(Object.assign({ vistaAdmin: true }, _marcaModificacion('Aviso visto por admin'))).then(renderAsgAdmin).catch(_fallo('verAsgAdminAviso incidencias.update'));
   });
 }
 function verAsgAdminReasignar(clienteId, id) {
-  // Aquí sí se marca vistaAdmin: true — es la acción real de resolver el aviso, no de
-  // solo abrirlo a mirar.
+  // Por si el aviso no llegó a marcarse al abrirlo (sin conexión): se marca también aquí
   if (id) _db.collection('incidencias').doc(id).update(Object.assign({ vistaAdmin: true }, _marcaModificacion('Aviso visto por admin'))).then(renderAsgAdmin).catch(_fallo('verAsgAdminReasignar incidencias.update'));
   var cli = getClientes().find(function(c){ return c.id === clienteId; });
   if (cli) { seleccionarCliente(clienteId); abrirAsignar(); }
