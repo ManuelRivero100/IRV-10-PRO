@@ -619,6 +619,23 @@ function _sincronizarEstadosIncidencias(soloTecnico, callback) {
   }).catch(function(){ if(callback) callback(); });
 }
 
+// Un parte borrado en el servidor (por un admin desde otro dispositivo) se quedaba en la copia local de los demás, porque la
+// sincronización solo añade y actualiza. Al descargar TODOS los partes (admin), se quitan de la copia local los que ya no
+// existen en el servidor. Protecciones: nunca los pendientes de subir (_pendienteSync) y, si fueran demasiados (más de 5 y
+// más del 5 % de la copia), no se toca nada por si la descarga fuera incompleta.
+function _quitarPartesBorradosDelServidor(snap, h) {
+  var clave = function(r){ return (r.fecha||'') + '|' + (r.pedido||'') + '|' + (r.centro||''); };
+  var enServidor = {};
+  snap.forEach(function(doc){ enServidor[clave(doc.data())] = true; });
+  var sobran = h.filter(function(r){ return !r._pendienteSync && !enServidor[clave(r)]; });
+  if (!sobran.length) return h;
+  if (sobran.length > Math.max(5, Math.round(h.length * 0.05))) {
+    _fallo('_quitarPartesBorradosDelServidor')(new Error('no se quitan '+sobran.length+' partes: son demasiados'));
+    return h;
+  }
+  return h.filter(function(r){ return sobran.indexOf(r) < 0; });
+}
+
 function _sincronizarPartesDesdeFirestore(soloTecnico, callback) {
   if (typeof _db === 'undefined' || !_db) { if(callback) callback(); return; }
 
@@ -663,6 +680,8 @@ function _sincronizarPartesDesdeFirestore(soloTecnico, callback) {
     _db.collection('partes').get().then(function(snap){
       var h = getH();
       _procesarSnap(snap, h);
+      // Solo con datos reales del servidor (no de la memoria sin conexión) y con algo descargado
+      if (!(snap.metadata && snap.metadata.fromCache) && snap.size > 0) h = _quitarPartesBorradosDelServidor(snap, h);
       setH(h);
       if(callback) callback(); else { renderClientes(); refreshCounts(); renderAsgTecnico(); }
     }).catch(function(){ if(callback) callback(); });
