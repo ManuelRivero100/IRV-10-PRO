@@ -363,7 +363,15 @@ function volverIncidencias(){histShow(['incidenciasView']);}
 
 function volverOrden(){ $('parteView').style.display='none'; $('ordenView').style.display='block'; }
 
-function volverSec(){ $('secView').style.display='block'; $('ordenView').style.display='none'; $('parteView').style.display='none'; }
+// "Atrás" de la orden: vuelve a la vista desde la que se abrió (_ordenDesde la fija verOrden/selIncidencia).
+// Si no se sabe de dónde viene (búsqueda, aviso, sesión recuperada), va al Historial en vez de a una lista vacía.
+var _ordenDesde='';
+function volverSec(){
+  $('ordenView').style.display='none'; $('parteView').style.display='none';
+  if(_ordenDesde==='incidencias') volverIncidencias();
+  else if(_ordenDesde==='lista') $('secView').style.display='block';
+  else volverHistOpts();
+}
 
 function volverSecFin(){histShow(['histOpts']);refreshCounts();}
 

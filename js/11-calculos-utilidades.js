@@ -375,6 +375,10 @@ function verOrden(enc){
     ?partesTodas.filter(function(x){ return x.r.tecnicos && x.r.tecnicos[0] && x.r.tecnicos[0].toLowerCase()===miNombre; })
     :partesTodas;
   if(!partes.length) return;
+  // De dónde se abre la orden, para que "Atrás" vuelva allí (ver volverSec): una lista del historial, la búsqueda o un aviso.
+  // Desde la lista de incidencias de un centro lo fija selIncidencia, y al repintar la orden (certificar, cerrar…) se conserva.
+  if($('secView').style.display==='block') _ordenDesde='lista';
+  else if($('histOpts').style.display!=='none') _ordenDesde='';
   $('secView').style.display='none'; $('ordenView').style.display='block'; $('parteView').style.display='none';
   var g=partes[0].r;
   var lastEstado=_getEstadoIncidencia(pedido,centro) || (partes[partes.length-1].r.estado||'terminado');

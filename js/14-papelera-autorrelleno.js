@@ -233,6 +233,7 @@ function selCentro(i){var c=_centrosCache[i];if(!c)return;verIncidenciasCentro(c
 
 function selIncidencia(i){
   var o=window._incidenciasCache[i];if(!o)return;
+  _ordenDesde='incidencias';
   histShow(['ordenView']);
   verOrden(encodeURIComponent(o.pedido)+'||'+encodeURIComponent(_curCentroFin));
 }
