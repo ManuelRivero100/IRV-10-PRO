@@ -169,7 +169,11 @@ function goTo(id){
   goToRaw(id);
   if(id==='w-form'&&!_keepForm){ mostrarDlgInicioOrden(); } if(id==='w-form') setTimeout(function(){ if($('pedido')&&$('pedido').value.length>2) ocultarLectura(); },100);
   _keepForm=false;
-  if(id==='w-hist'){ refreshCounts(); renderHistTecBtns(); }
+  if(id==='w-hist'){
+    // Al entrar en el historial la búsqueda empieza vacía: si no, el texto de la visita anterior seguía recortando listas y contadores
+    if($('busca')) $('busca').value=''; if($('buscaF')) $('buscaF').value='';
+    refreshCounts(); renderHistTecBtns(); renderSearchResults();
+  }
   if(id==='w-stats') statsInit();
   if(id==='w-catalogo'){
     // Siempre se abre en la pestaña Materiales: se oculta también la pestaña en la que se salió (Técnicos, Agenda…), que si no quedaba a la vista junto a Materiales
