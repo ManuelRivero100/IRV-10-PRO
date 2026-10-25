@@ -246,7 +246,12 @@ function tecGuardar(){
 }
 
 function tecEliminar(id){
-  _confirmarApp('¿Eliminar este técnico?', function(){
+  var quien=getTecnicos().find(function(t){return t.id===id;});
+  if(quien && window._sesion && (window._sesion.nombre||'').toLowerCase()===(quien.nombre||'').toLowerCase()){
+    alert('No puedes quitarte a ti mismo del listado: te quedarías sin acceso.');
+    return;
+  }
+  _confirmarApp('¿Quitar a '+(quien?quien.nombre:'este técnico')+' del listado? Sus partes ya guardados se conservan, pero ya no podrá entrar.', function(){
     var tecs=getTecnicos();
     var tec=tecs.find(function(t){return t.id===id;});
     setTecnicos(tecs.filter(function(t){return t.id!==id;}));
@@ -272,8 +277,12 @@ function _cargarPinesVisibles(){
 
 function renderCatTecnicos(){
   var el=$('catTecnicosList'); if(!el) return;
-  // Sin reordenar: si al desactivar a un técnico su fila se fuera al final, la de abajo subiría a su sitio y el siguiente toque caería en otro técnico
-  var tecs=getTecnicos();
+  // Activos primero y desactivados al final (cada grupo conserva su orden). Si al desactivar la fila de abajo sube a su sitio y un
+  // toque cae en otro técnico, "Desactivar" pide confirmación con el nombre y nunca deja desactivar a uno mismo.
+  var tecs=getTecnicos().map(function(t,i){ return {t:t,i:i}; }).sort(function(a,b){
+    var ai = a.t.activo===false?1:0, bi = b.t.activo===false?1:0;
+    return (ai-bi) || (a.i-b.i);
+  }).map(function(x){ return x.t; });
 
   if(!tecs.length){ el.innerHTML='<div style="font-size:.82rem;color:var(--text3);padding:10px 0;">No hay técnicos registrados.</div>'; return; }
   el.innerHTML=tecs.map(function(t){
@@ -281,7 +290,7 @@ function renderCatTecnicos(){
     return '<div class="card" style="margin-bottom:8px;opacity:'+(inactivo?'0.5':'1')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
       +'<input value="'+escHtml(t.nombre)+'" style="font-weight:700;font-size:.9rem;border:none;background:transparent;color:var(--text);font-family:inherit;flex:1;padding:0;" onchange="tecEditarNombre(\''+t.id+'\',this.value)">'
-      +'<button onclick="tecEliminar(\''+t.id+'\')" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r-sm);padding:4px 10px;font-size:.8rem;cursor:pointer;">&#128465;</button>'
+      +'<button onclick="tecEliminar(\''+t.id+'\')" style="background:var(--red-light);color:var(--red);border:none;border-radius:var(--r-sm);padding:4px 10px;font-size:.8rem;cursor:pointer;">&#128465;'+(inactivo?' Quitar del listado':'')+'</button>'
       +'</div>'
       +(t.tel?'<div style="font-size:.8rem;color:var(--text2);margin-top:4px;">📞 '+escHtml(t.tel)+'</div>':'')
       +(t.ultimaConexion?'<div style="font-size:.76rem;color:var(--text3);margin-top:2px;">🕓 Última conexión: '+_fmtFechaHora(t.ultimaConexion)+'</div>':'')
