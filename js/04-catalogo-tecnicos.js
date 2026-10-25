@@ -258,6 +258,10 @@ function tecEliminar(id){
     if(tec&&tec.nombre&&typeof _db!=='undefined'&&_db){
       var docId=tec.nombre.toLowerCase().replace(/ /g,'_');
       _db.collection('usuario').doc(docId).delete().catch(_fallo('tecEliminar usuario.delete'));
+      // Sin estos dos, quien se creara después con el mismo nombre heredaría el PIN del anterior (las reglas dejan al admin borrarlos, no leerlos)
+      _db.collection('credenciales').doc(docId).delete().catch(_fallo('tecEliminar credenciales.delete'));
+      _db.collection('pinesVisibles').doc(docId).delete().catch(_fallo('tecEliminar pinesVisibles.delete'));
+      delete _pinesVisibles[docId];
     }
     renderCatTecnicos();
   });
