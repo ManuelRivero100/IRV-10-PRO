@@ -265,10 +265,20 @@ function renderMenu(){
   refreshCounts();
   if(_esAdmin()) _actualizarBadgeAsignar();
 }
+// Incidencias de un cliente que no están terminadas. Se piden todas las del cliente (una sola condición, sin índice) y se filtran
+// aquí: con where('estado','!=','terminado') Firestore exige un índice compuesto que el proyecto nuevo no tiene, y sin él la
+// consulta falla (número de "Asignar" sin actualizar y lista de Asignar en "Cargando…"). Igual que el "!=" de Firestore,
+// las que no tienen campo "estado" no cuentan. Devuelve algo que se usa como el resultado de una consulta: size, forEach y docs.
+function _consultarIncidenciasAbiertas(clienteId){
+  return _db.collection('incidencias').where('clienteId','==',clienteId).get().then(function(snap){
+    var docs=snap.docs.filter(function(d){ var e=d.data().estado; return e!==undefined && e!=='terminado'; });
+    return { size:docs.length, docs:docs, forEach:function(f){ docs.forEach(f); } };
+  });
+}
 function _actualizarBadgeAsignar(){
   if(!curCliente) return;
   var b=$('asgBadge'); if(!b) return;
-  _db.collection('incidencias').where('clienteId','==',curCliente.id).where('estado','!=','terminado').get().then(function(snap){
+  _consultarIncidenciasAbiertas(curCliente.id).then(function(snap){
     if(!b) return;
     b.textContent=snap.size;
     b.style.display=snap.size>0?'block':'none';

@@ -825,7 +825,7 @@ var _asgIncidenciasPorTec = {};
 function renderAsgLista() {
   var el = $('asgLista'); if (!el || !curCliente) return;
   el.innerHTML = '<div style="color:var(--text2);font-size:.82rem;">Cargando...</div>';
-  _db.collection('incidencias').where('clienteId','==',curCliente.id).where('estado','!=','terminado').get().then(function(snap){
+  _consultarIncidenciasAbiertas(curCliente.id).then(function(snap){
     var b=$('asgBadge'); if(b){ b.textContent=snap.size; b.style.display=snap.size>0?'block':'none'; }
     var tecs = getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin; });
     _asgIncidenciasPorTec = {};
