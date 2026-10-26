@@ -90,7 +90,7 @@ function horasMostrar(v){
   $('horasEquipo').style.display = v==='equipo' ? 'block' : 'none';
   $('horasControl').style.display = v==='control' ? 'block' : 'none';
   $('horasTab').style.display = v==='tab' ? 'block' : 'none';
-  $('hInicio').style.display = (v==='menu' || v==='menuAdmin') ? 'none' : '';   // en el menú, "Atrás" ya lleva al inicio
+  $('hInicioBtn').style.display = (v==='menu' || v==='menuAdmin') ? 'none' : '';   // en el menú, "Atrás" ya lleva al inicio
   if(v==='tab'){
     _horasTabSel={nivel:'menu', id:null};
     horasRenderTab();
