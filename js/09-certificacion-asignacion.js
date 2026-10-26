@@ -131,11 +131,16 @@ function _actualizarIncidenciaPorOrden(pedido,centro,estado,datosParte){
   var _clienteIdInc = (datosParte && datosParte.clienteId) || 'mercadona';
   var _refInc = _db.collection('incidencias').doc(incidenciaId(centro,pedido));
   var _razonMod = estado==='terminado' ? 'Parte generado (cerrada)' : 'Parte generado (sigue abierta)';
-  function _actualizarRefs(refs){
+  // La descripción de la orden es lo que hay que hacer, no lo que se hizo un día: un parte guardado NUNCA la sustituye si la orden ya
+  // tiene una. Solo se rellena cuando está vacía (las observaciones de cada parte se quedan en su propio parte).
+  function _actualizarRefs(docs){
     var _descNueva = datosParte && (datosParte.averiaReportada||datosParte.obs);
-    var _updateData = Object.assign({estado:estado, vista:true}, _marcaModificacion(_razonMod));
-    if(_descNueva) _updateData.descripcion = _descNueva;
-    return Promise.all(refs.map(function(ref){ return ref.update(_updateData); }));
+    return Promise.all(docs.map(function(doc){
+      var _updateData = Object.assign({estado:estado, vista:true}, _marcaModificacion(_razonMod));
+      var _descActual = String((doc.data() && doc.data().descripcion) || '').trim();
+      if(_descNueva && !_descActual) _updateData.descripcion = _descNueva;
+      return doc.ref.update(_updateData);
+    }));
   }
   function _crearNueva(){
     if(!datosParte) return Promise.resolve();
@@ -154,13 +159,13 @@ function _actualizarIncidenciaPorOrden(pedido,centro,estado,datosParte){
     }, _marcaModificacion(_razonMod)));
   }
   _refInc.get().then(function(doc){
-    if(doc.exists) return _actualizarRefs([_refInc]);
+    if(doc.exists) return _actualizarRefs([doc]);
     // No existe con el ID fijo — puede ser una incidencia de antes de este cambio, guardada
     // con ID aleatorio (.add() antiguo). Buscarla por pedido+centro antes de asumir que es
     // nueva, para no crear un documento paralelo de una que ya existe con otro ID.
     return _db.collection('incidencias').where('pedido','==',pedido).where('centro','==',centro).get()
       .then(function(snap){
-        if(!snap.empty) return _actualizarRefs(snap.docs.map(function(d){ return d.ref; }));
+        if(!snap.empty) return _actualizarRefs(snap.docs);
         return _crearNueva();
       });
   }).then(function(){ _limpiarIncidenciaPendientePorPedido(pedido,centro); })
