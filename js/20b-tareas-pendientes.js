@@ -28,7 +28,7 @@ function abrirTareas(verRealizadas){
   _tarTecs=_tecnicosAsignables().map(function(t){ return t.nombre; });
   $('tarTecTgl').innerHTML=_tarTecs.length?_tarTecs.map(function(n,i){ return '<button onclick="tarElegirTec('+i+',this)">'+escHtml(n)+'</button>'; }).join(''):'<div style="color:var(--text2);font-size:.82rem;padding:6px;">No hay técnicos activos en el catálogo.</div>';
   goTo('w-tareas');
-  tarRender();
+  return tarRender();
 }
 function tarElegirTec(i,el){ _tarTec=_tarTecs[i]; document.querySelectorAll('#tarTecTgl button').forEach(function(b){ b.classList.remove('active'); }); el.classList.add('active'); }
 // Busca en todos los clientes y en todos los sitios de la agenda (Mercadona incluido), por nombre del cliente, de la tienda o nº de centro.
@@ -100,9 +100,12 @@ function _tarAvisosHtml(snap){
   snap.forEach(function(doc){
     var d=doc.data(), c=d.comentarios||[], u=c[c.length-1]||{};
     var que=d.estado==='realizada'?'realizó la tarea':(c.length>1?'comentó':'creó una tarea');
+    var quien=u.por||d.creadoPor||'';
+    // El técnico solo se nombra si es otra persona (no hace falta decir "Manuel creó una tarea · Técnico: Manuel")
+    var tec=quien.trim().toLowerCase()===(d.tecnico||'').trim().toLowerCase()?'':' · Técnico: '+escHtml(d.tecnico);
     h+='<div class="act-list-item" onclick="tarVerAviso(\''+doc.id+'\')"><span class="act-num">&#128221;</span>'
       +'<div><div class="act-info">'+escHtml([d.cliente,d.tienda].filter(Boolean).join(' · '))+'</div>'
-      +'<div class="act-sub">Tarea · '+escHtml(u.por||d.creadoPor||'')+' '+que+' · Técnico: '+escHtml(d.tecnico)+'</div></div></div>';
+      +'<div class="act-sub">Tarea · '+escHtml(quien)+' '+que+tec+'</div></div></div>';
   });
   return h;
 }
@@ -110,8 +113,15 @@ function tarVerAviso(id){
   _tarCol().doc(id).get().then(function(doc){
     if(!doc.exists) return;
     var d=doc.data(); _tarAbiertos[(d.tecnico||'(sin asignar)').replace(/[^a-z0-9]/gi,'_')]=true;
-    return _tarCol().doc(id).update({vistaAdmin:true}).then(function(){ abrirTareas(d.estado==='realizada'); });
+    return _tarCol().doc(id).update({vistaAdmin:true}).then(function(){ return abrirTareas(d.estado==='realizada'); }).then(function(){ tarEnfocar(id); });
   }).catch(function(){ _toast('No se pudo abrir la tarea. Comprueba tu conexión.','var(--red)'); });
+}
+// Deja esa tarea desplegada, resaltada y a la vista (para que el aviso lleve a la tarea y no solo a la lista).
+function tarEnfocar(id){
+  var det=$('tarDet_'+id); if(!det) return;
+  det.style.display='block';
+  var fila=det.parentNode; fila.style.borderColor='var(--green)';
+  fila.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function tarToggleGrupo(k){ var el=$('tarGrupo_'+k); if(!el) return; var abrir=el.style.display==='none'; el.style.display=abrir?'block':'none'; _tarAbiertos[k]=abrir; }
 function tarRender(){
@@ -121,7 +131,7 @@ function tarRender(){
   // El administrador ve las de todos los técnicos (las pendientes agrupadas por técnico, como en Asignar); el técnico, solo las suyas.
   var c=_tarCol(), est=_tarCerradas?'realizada':'pendiente';
   var q=_tarAdmin()?c.where('estado','==',est):c.where('tecnico','==',_tarYo()).where('estado','==',est);
-  q.get().then(function(s){
+  return q.get().then(function(s){
     _tarCache={}; var ids=[];
     s.forEach(function(d){ _tarCache[d.id]=d.data(); ids.push(d.id); });
     ids.sort(function(a,b){ return _tarUltima(_tarCache[b])-_tarUltima(_tarCache[a]); });
