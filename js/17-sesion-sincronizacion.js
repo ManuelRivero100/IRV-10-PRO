@@ -773,6 +773,7 @@ function abrirAsignar() {
     var el=$(id); if(el){ el.readOnly=false; el.style.background=''; el.style.color=''; }
   });
   $('asgMsg').textContent='';
+  var _acT=$('acAsgTienda'); if(_acT){ _acT.classList.remove('show'); _acT.innerHTML=''; } _asgSugs=[];
   var esMerc = curCliente.tipo==='mercadona';
   $('asgLabelPedido').innerHTML = esMerc ? 'N&ordm; orden <span class="req">*</span>' : 'N&ordm; orden / referencia';
   $('asgFieldCentro').style.display = esMerc ? 'block' : 'none';
@@ -786,6 +787,44 @@ function abrirAsignar() {
   }).join('') : '<div style="color:var(--text2);font-size:.82rem;padding:6px;">No hay técnicos activos en el catálogo.</div>';
   goTo('w-asignar');
   renderAsgLista();
+}
+
+// Clientes que no son Mercadona: al escribir en Tienda se ofrecen los sitios guardados en su agenda (igual que Generar parte).
+// Elegir uno rellena tienda/dirección/teléfono/km/despl. y deja su código (CL00xx) en el centro; si se sigue escribiendo
+// a mano, el centro se vacía y queda como un sitio nuevo. Mercadona no pasa por aquí: se busca por nº de centro.
+var _asgSugs=[];
+function asgSugerirTienda(val){
+  var box=$('acAsgTienda'); if(!box) return;
+  box.classList.remove('show'); box.innerHTML=''; _asgSugs=[];
+  if(!curCliente || curCliente.tipo==='mercadona') return;
+  $('asgCentro').value='';
+  val=(val||'').trim().toLowerCase();
+  if(!val) return;
+  var a=getAgenda();
+  Object.keys(a).forEach(function(k){
+    var ag=a[k];
+    if(ag.clienteId!==curCliente.id) return;
+    if((ag.tienda||'').toLowerCase().indexOf(val)>=0 || (ag.centro||'').toLowerCase().indexOf(val)>=0) _asgSugs.push(ag);
+  });
+  if(!_asgSugs.length) return;
+  box.innerHTML=_asgSugs.map(function(ag,i){
+    return '<div class="ac-item" onclick="asgElegirAgenda('+i+')">'
+      +'<span style="font-size:.75rem;color:var(--green);font-weight:700;margin-right:6px;">'+escHtml(ag.centro)+'</span>'+escHtml(ag.tienda)
+      +' <span class="badge badge-g" style="font-size:.66rem;">Agenda</span>'
+      +'<div style="font-size:.72rem;color:var(--text2);">'+escHtml(ag.dir||'')+'</div></div>';
+  }).join('');
+  box.classList.add('show');
+}
+function asgElegirAgenda(i){
+  var ag=_asgSugs[i]; if(!ag) return;
+  $('asgCentro').value=ag.centro||'';
+  $('asgTienda').value=ag.tienda||'';
+  $('asgDir').value=ag.dir||'';
+  $('asgTel').value=ag.tel||'';
+  $('asgKm').value=ag.km||'';
+  $('asgTr').value=ag.tr||'';
+  var box=$('acAsgTienda'); if(box){ box.classList.remove('show'); box.innerHTML=''; }
+  _asgSugs=[];
 }
 
 function setAsgJob(j, el) { _asgJob = j; document.querySelectorAll('#asgJobTgl button').forEach(function(b){b.classList.remove('active');}); el.classList.add('active'); }

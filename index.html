@@ -185,7 +185,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
     <div class="brow"><button class="btn btn-p" onclick="leerAsg()">&#128269; Autocompletar</button><button class="btn btn-s" onclick="$('asgRaw').value=''">&#128465;&#65039; Limpiar</button></div>
     <div class="field" style="margin-top:10px;"><label id="asgLabelPedido">N&ordm; orden</label><input id="asgPedido" inputmode="numeric" placeholder="Ej: 119137"></div>
     <div class="field" id="asgFieldCentro"><label>N&ordm; centro</label><input id="asgCentro" inputmode="numeric" placeholder="Ej: 2721" oninput="buscarKmAsg(this.value)"></div>
-    <div class="field"><label>Tienda <span class="req">*</span></label><input id="asgTienda" placeholder="Mercadona SAN JAVIER 2721"></div>
+    <div class="field"><label>Tienda <span class="req">*</span></label><input id="asgTienda" placeholder="Mercadona SAN JAVIER 2721" oninput="asgSugerirTienda(this.value)" autocomplete="off"><div class="ac-box" id="acAsgTienda"></div></div>
     <div class="field"><label>Direcci&oacute;n <span class="req">*</span></label><input id="asgDir"></div>
     <div class="field"><label>Tel&eacute;fono <span class="req">*</span></label><input id="asgTel" type="tel" inputmode="numeric"></div>
     <div class="field"><label>Km (opcional)</label><input id="asgKm" type="number" inputmode="decimal" placeholder="Ej: 35"></div>
@@ -739,7 +739,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script>var APP_BUILD_ID = 'build-2026-10-26za-v3-parte-no-pisa-descripcion';</script>
+<script>var APP_BUILD_ID = 'build-2026-10-27a-v3-asignar-agenda-no-merc';</script>
 <script src="js/01-base.js?v=build-2026-10-26za-v3-parte-no-pisa-descripcion"></script>
 <script src="js/02-clientes.js?v=build-2026-10-26za-v3-parte-no-pisa-descripcion"></script>
 <script src="js/03-almacen-agenda.js?v=build-2026-10-26za-v3-parte-no-pisa-descripcion"></script>
