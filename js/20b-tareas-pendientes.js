@@ -112,18 +112,27 @@ function _tarAvisosHtml(snap){
 function tarVerAviso(id){
   _tarCol().doc(id).get().then(function(doc){
     if(!doc.exists) return;
-    var d=doc.data(); _tarAbiertos[(d.tecnico||'(sin asignar)').replace(/[^a-z0-9]/gi,'_')]=true;
+    var d=doc.data(); _tarAbiertos={}; _tarAbiertos[(d.tecnico||'(sin asignar)').replace(/[^a-z0-9]/gi,'_')]=true;
     return _tarCol().doc(id).update({vistaAdmin:true}).then(function(){ return abrirTareas(d.estado==='realizada'); }).then(function(){ tarEnfocar(id); });
   }).catch(function(){ _toast('No se pudo abrir la tarea. Comprueba tu conexión.','var(--red)'); });
 }
 // Deja esa tarea desplegada, resaltada y a la vista (para que el aviso lleve a la tarea y no solo a la lista).
 function tarEnfocar(id){
   var det=$('tarDet_'+id); if(!det) return;
+  _tarCerrarOtras(det);
   det.style.display='block';
   var fila=det.parentNode; fila.style.borderColor='var(--green)';
   fila.scrollIntoView({behavior:'smooth',block:'center'});
 }
-function tarToggleGrupo(k){ var el=$('tarGrupo_'+k); if(!el) return; var abrir=el.style.display==='none'; el.style.display=abrir?'block':'none'; _tarAbiertos[k]=abrir; }
+// Solo un técnico desplegado a la vez: al abrir uno se cierra el que estuviera abierto.
+function tarToggleGrupo(k){
+  var el=$('tarGrupo_'+k); if(!el) return;
+  var abrir=el.style.display==='none';
+  document.querySelectorAll('[id^=tarGrupo_]').forEach(function(e){ e.style.display='none'; });
+  _tarCerrarOtras(null); // y las tareas que estuvieran desplegadas dentro
+  _tarAbiertos={}; _tarAbiertos[k]=abrir;
+  el.style.display=abrir?'block':'none';
+}
 function tarRender(){
   var el=$('tarLista'); el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">Cargando…</div>';
   $('tarTitulo').innerHTML=_tarCerradas?'&#10003; Realizadas':'&#128221; Pendientes';
@@ -140,9 +149,15 @@ function tarRender(){
   }).catch(function(){ el.innerHTML='<div style="color:var(--red);font-size:.82rem;">No se pudieron cargar. Comprueba tu conexión.</div>'; });
 }
 function tarVerCerradas(){ _tarCerradas=!_tarCerradas; tarRender(); }
+// Solo una tarea desplegada a la vez: al abrir una se cierra la anterior.
+function _tarCerrarOtras(det){
+  document.querySelectorAll('[id^=tarDet_]').forEach(function(e){ if(e!==det){ e.style.display='none'; e.parentNode.style.borderColor=''; } });
+}
 function tarAbrir(id){
   var det=$('tarDet_'+id); if(!det) return;
-  det.style.display=det.style.display==='none'?'block':'none';
+  var abrir=det.style.display==='none';
+  _tarCerrarOtras(det);
+  det.style.display=abrir?'block':'none';
   var d=_tarCache[id], campo=_tarAdmin()?'vistaAdmin':'vistaTecnico';
   if(d && d[campo]===false){
     d[campo]=true; var u={}; u[campo]=true;
