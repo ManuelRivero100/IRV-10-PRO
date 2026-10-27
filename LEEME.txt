@@ -1,0 +1,4 @@
+Esta direccion ya no contiene la aplicacion Partes IRV-10 (nueva).
+La app nueva esta en https://irv-10-pro.web.app/IRV-10-PRO/
+El codigo fuente esta en la rama "fuente" de este repositorio.
+NO publicar aqui la app: comparte direccion base con la app vieja (IRV-partes-v20) y se mezclarian sus datos locales.
