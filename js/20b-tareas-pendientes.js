@@ -67,27 +67,60 @@ function guardarTarea(){
   _tarCol().add(data).then(function(){ _toast('Tarea guardada'); abrirTareas(); actualizarBadgeTareas(); })
     .catch(function(){ showMsg('tarMsg','Error al guardar. Comprueba tu conexión.'); });
 }
+// Título como en las asignaciones (el nombre de la tienda); el cliente se antepone solo si el nombre de la tienda no lo incluye.
+function _tarTitulo(d){
+  var t=d.tienda||'', c=d.cliente||'';
+  return (c && t.toLowerCase().indexOf(c.toLowerCase())<0) ? (t?c+' · '+t:c) : (t||c);
+}
+// Tarjeta con el mismo formato que las incidencias de Asignar: título en negrita y líneas grises debajo.
 function _tarFila(id){
   var d=_tarCache[id], cerrada=d.estado==='realizada', nuevo=_tarAdmin()?d.vistaAdmin===false:d.vistaTecnico===false;
-  return '<div class="act-list-item" style="display:block;cursor:default;">'
-    +'<div onclick="tarAbrir(\''+id+'\')" style="cursor:pointer;"><div class="act-info">'+(cerrada?'&#10003; ':'')+escHtml([d.cliente,d.tienda].filter(Boolean).join(' · '))
+  var estado=cerrada?'✅ Realizada':'⏳ Pendiente';
+  var tec=(_tarAdmin() && _tarCerradas)?' · Técnico: '+escHtml(d.tecnico):'';
+  return '<div class="card" style="margin-bottom:8px;">'
+    +'<div onclick="tarAbrir(\''+id+'\')" style="cursor:pointer;"><div style="font-weight:700;font-size:.9rem;">'+escHtml(_tarTitulo(d))
     +(nuevo?' <span class="badge badge-a" id="tarNuevo_'+id+'">nuevo</span>':'')+'</div>'
-    +'<div class="act-sub">Técnico: '+escHtml(d.tecnico)+' · '+_fmtFechaHora(_tarUltima(d))+'</div></div>'
+    +'<div style="font-size:.78rem;color:var(--text2);margin-top:2px;">'+estado+tec+' · '+_fmtFechaHora(_tarUltima(d))+'</div></div>'
     +'<div id="tarDet_'+id+'" style="display:none;margin-top:8px;">'
     +(d.comentarios||[]).map(function(c){ return '<div style="font-size:.8rem;border-left:3px solid var(--border);padding:3px 8px;margin:4px 0;"><b>'+escHtml(c.por)+'</b> · '+_fmtFechaHora(c.ts)+(c.cierre?' · realizada':'')+'<br>'+escHtml(c.texto).replace(/\n/g,'<br>')+'</div>'; }).join('')
     +(cerrada?'':'<div class="field"><textarea id="tarCom_'+id+'" rows="2" placeholder="Comentario…"></textarea></div>'
       +'<div class="brow"><button class="btn btn-s" onclick="tarEnviar(\''+id+'\',false)">Añadir comentario</button><button class="btn btn-p" onclick="tarEnviar(\''+id+'\',true)">&#10003; Realizada</button></div><div id="tarMsg_'+id+'" class="msg"></div>')
+    +(_tarAdmin()?_tarControlesAdmin(d,id,cerrada):'')
     +'</div></div>';
+}
+// Solo el administrador: reasignar a otro técnico y eliminar (va a la Papelera y se puede restaurar), igual que en las asignaciones.
+function _tarControlesAdmin(d,id,cerrada){
+  return (cerrada?'':'<div style="margin-top:8px;"><label style="font-size:.75rem;color:var(--text2);font-weight:700;">Reasignar a:</label>'
+      +'<select onchange="tarReasignar(\''+id+'\',this.value)" style="width:100%;margin-top:4px;padding:6px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;">'
+      +'<option value="">-- mantener --</option>'
+      +_tarTecs.filter(function(n){ return n!==d.tecnico; }).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('')
+      +'</select></div>')
+    +'<button class="btn btn-d btn-sm" style="margin-top:8px;" onclick="tarEliminar(\''+id+'\')">&#128465; Eliminar</button>';
+}
+function tarReasignar(id,nuevo){
+  if(!nuevo) return;
+  var d=_tarCache[id]; if(!d) return;
+  var c={texto:'Reasignada de '+d.tecnico+' a '+nuevo,por:window._sesion.nombre,ts:Date.now()};
+  _tarCol().doc(id).update(Object.assign({tecnico:nuevo, vistaTecnico:false, vistaAdmin:true, comentarios:firebase.firestore.FieldValue.arrayUnion(c)}, _marcaModificacion('Tarea reasignada')))
+    .then(function(){ _toast('Tarea reasignada a '+nuevo); tarRender(); actualizarBadgeTareas(); })
+    .catch(function(){ _toast('No se pudo reasignar. Comprueba tu conexión.','var(--red)'); });
+}
+function tarEliminar(id){
+  _confirmarApp('¿Eliminar esta tarea?', function(){
+    _moverAPapelera('tareasPendientes', id, 'Eliminada desde Tareas').then(function(){ _toast('Tarea eliminada (está en la Papelera)'); tarRender(); actualizarBadgeTareas(); })
+      .catch(function(){ _toast('No se pudo eliminar. Comprueba tu conexión.','var(--red)'); });
+  });
 }
 // Pendientes del administrador: un desplegable por técnico con su número, primero los que tienen tareas (igual que Asignar).
 var _tarAbiertos={};
+var _tarEstiloAbierto='background:var(--green-light);border-color:var(--green);color:var(--green);'; // el técnico abierto se resalta como en Asignar
 function _tarGrupos(ids){
   var por={}; _tarTecs.forEach(function(n){ por[n]=[]; });
   ids.forEach(function(id){ var n=_tarCache[id].tecnico||'(sin asignar)'; (por[n]=por[n]||[]).push(id); });
   return Object.keys(por).sort(function(a,b){ return por[b].length-por[a].length || a.localeCompare(b); }).map(function(n){
     var k=n.replace(/[^a-z0-9]/gi,'_'), cant=por[n].length;
     return '<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;">'
-      +'<button class="btn btn-s btn-full" style="justify-content:space-between;border-radius:0;" onclick="tarToggleGrupo(\''+k+'\')"><span>&#128119; '+escHtml(n)+'</span>'
+      +'<button class="btn btn-s btn-full" style="justify-content:space-between;border-radius:0;'+(_tarAbiertos[k]?_tarEstiloAbierto:'')+'" onclick="tarToggleGrupo(\''+k+'\')"><span>&#128119; '+escHtml(n)+'</span>'
       +'<span style="background:'+(cant?'var(--green)':'var(--border2)')+';color:#fff;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:20px;min-width:22px;text-align:center;">'+cant+'</span></button>'
       +'<div id="tarGrupo_'+k+'" style="display:'+(_tarAbiertos[k]?'block':'none')+';padding:10px;">'
       +(cant?por[n].map(_tarFila).join(''):'<div style="color:var(--text2);font-size:.82rem;">Sin tareas pendientes.</div>')+'</div></div>';
@@ -104,10 +137,30 @@ function _tarAvisosHtml(snap){
     // El técnico solo se nombra si es otra persona (no hace falta decir "Manuel creó una tarea · Técnico: Manuel")
     var tec=quien.trim().toLowerCase()===(d.tecnico||'').trim().toLowerCase()?'':' · Técnico: '+escHtml(d.tecnico);
     h+='<div class="act-list-item" onclick="tarVerAviso(\''+doc.id+'\')"><span class="act-num">&#128221;</span>'
-      +'<div><div class="act-info">'+escHtml([d.cliente,d.tienda].filter(Boolean).join(' · '))+'</div>'
+      +'<div><div class="act-info">'+escHtml(_tarTitulo(d))+'</div>'
       +'<div class="act-sub">Tarea · '+escHtml(quien)+' '+que+tec+'</div></div></div>';
   });
   return h;
+}
+// Avisos del técnico en el inicio (junto a sus incidencias asignadas): una tarea que le asignaron, o que comentaron, y aún no ha visto.
+// Igual que las asignaciones: la fila desaparece al verla, y al tocarla se abre esa tarea.
+function _tarAvisosTecnicoHtml(snap){
+  var h='';
+  snap.forEach(function(doc){
+    var d=doc.data(), c=d.comentarios||[], u=c[c.length-1]||{};
+    var que=d.estado==='realizada'?'dio la tarea por realizada':(c.length>1?'comentó':'te asignó una tarea');
+    h+='<div class="act-list-item" onclick="tarVerAvisoTecnico(\''+doc.id+'\')"><span class="act-num">&#128221;</span>'
+      +'<div><div class="act-info">'+escHtml(_tarTitulo(d))+'</div>'
+      +'<div class="act-sub">Tarea · '+escHtml(u.por||d.creadoPor||'')+' '+que+'</div></div></div>';
+  });
+  return h;
+}
+function tarVerAvisoTecnico(id){
+  _tarCol().doc(id).get().then(function(doc){
+    if(!doc.exists) return;
+    var d=doc.data();
+    return _tarCol().doc(id).update({vistaTecnico:true}).then(function(){ return abrirTareas(d.estado==='realizada'); }).then(function(){ tarEnfocar(id); });
+  }).catch(function(){ _toast('No se pudo abrir la tarea. Comprueba tu conexión.','var(--red)'); });
 }
 function tarVerAviso(id){
   _tarCol().doc(id).get().then(function(doc){
@@ -128,10 +181,12 @@ function tarEnfocar(id){
 function tarToggleGrupo(k){
   var el=$('tarGrupo_'+k); if(!el) return;
   var abrir=el.style.display==='none';
-  document.querySelectorAll('[id^=tarGrupo_]').forEach(function(e){ e.style.display='none'; });
+  document.querySelectorAll('[id^=tarGrupo_]').forEach(function(e){ e.style.display='none'; var b=e.parentNode.querySelector('button'); if(b){ b.style.background=''; b.style.borderColor=''; b.style.color=''; } });
   _tarCerrarOtras(null); // y las tareas que estuvieran desplegadas dentro
   _tarAbiertos={}; _tarAbiertos[k]=abrir;
   el.style.display=abrir?'block':'none';
+  var btn=el.parentNode.querySelector('button');
+  if(abrir && btn){ btn.style.background='var(--green-light)'; btn.style.borderColor='var(--green)'; btn.style.color='var(--green)'; }
 }
 function tarRender(){
   var el=$('tarLista'); el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">Cargando…</div>';

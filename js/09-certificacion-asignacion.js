@@ -200,7 +200,9 @@ function renderAsgTecnico() {
       .get(),
     _db.collection('incidencias')
       .where('solicitudReabrir.tecnico','==',miNombre)
-      .get()
+      .get(),
+    // Tareas pendientes que le asignaron (o le comentaron) y aún no ha visto (si esta consulta falla, el resto de avisos sigue igual)
+    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('vistaTecnico','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; })
   ]).then(function(resultados){
     var snap = resultados[0], snapRechazadas = resultados[1];
     var html = '';
@@ -224,6 +226,7 @@ function renderAsgTecnico() {
         + '<div class="act-sub">'+(refs.length?refs.join(' · ')+' · ':'')+'Solicitud de reabrir rechazada</div></div>'
         + '</div>';
     });
+    html += _tarAvisosTecnicoHtml(resultados[2]);
     if (!html) { sec.style.display = 'none'; el.innerHTML=''; }
     else { el.innerHTML = html; sec.style.display = 'block'; }
   }).catch(function(){ sec.style.display = 'none'; });

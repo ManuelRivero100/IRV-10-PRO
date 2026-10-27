@@ -19,6 +19,8 @@ function _renderPapelera(){
       var d = it.datos||{};
       var etiqueta = it.coleccionOriginal==='partes'
         ? ('Parte · '+escHtml(d.tienda||'')+' · '+escHtml(d.fecha||'')+(d.numParte?(' · Nº '+escHtml(d.numParte)):''))
+        : it.coleccionOriginal==='tareasPendientes'
+        ? ('Tarea · '+escHtml(d.tienda||d.cliente||'')+' · '+escHtml(d.tecnico||''))
         : ('Incidencia · '+escHtml(d.tienda||'')+' · '+escHtml(d.pedido||''));
       return '<div class="card">'
         +'<div style="font-size:.9rem;font-weight:700;margin-bottom:4px;">'+etiqueta+'</div>'
