@@ -148,7 +148,7 @@ function _tarAvisosTecnicoHtml(snap){
   var h='';
   snap.forEach(function(doc){
     var d=doc.data(), c=d.comentarios||[], u=c[c.length-1]||{};
-    var que=d.estado==='realizada'?'dio la tarea por realizada':(c.length>1?'comentó':'te asignó una tarea');
+    var que=d.estado==='realizada'?'dio la tarea por realizada':(/^Reasignada de /.test(u.texto||'')?'te reasignó la tarea':(c.length>1?'comentó':'te asignó una tarea'));
     h+='<div class="act-list-item" onclick="tarVerAvisoTecnico(\''+doc.id+'\')"><span class="act-num">&#128221;</span>'
       +'<div><div class="act-info">'+escHtml(_tarTitulo(d))+'</div>'
       +'<div class="act-sub">Tarea · '+escHtml(u.por||d.creadoPor||'')+' '+que+'</div></div></div>';
