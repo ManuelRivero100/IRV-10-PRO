@@ -26,6 +26,7 @@ var _PANTALLAS = {
   'w-result': { capturar: _capturarForm, abrir: volverAlForm, restaurar: _restaurarForm },
   'w-papelera': { abrir: abrirPapelera },
   'w-backups': { abrir: abrirBackups },
+  'w-tareas': { abrir: abrirTareas },
   'w-asignar': { capturar: _capturarAsignar, abrir: abrirAsignar, restaurar: _restaurarAsignar },
   'w-nuevo-cliente': { capturar: _capturarNuevoCliente, restaurar: _restaurarNuevoCliente }
 };

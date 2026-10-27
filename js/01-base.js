@@ -199,6 +199,7 @@ function goTo(id){
     renderClientes();
     renderAsgTecnico();
     renderAsgAdmin();
+    actualizarBadgeTareas();
   }
   if(id==='w-menu'&&curCliente){ resetearEstadoCompleto(); renderMenu(); }
 }

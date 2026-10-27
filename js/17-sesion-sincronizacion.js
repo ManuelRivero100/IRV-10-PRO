@@ -345,6 +345,9 @@ function _aplicarSesion(nombre, rol, multiRol) {
   if (icBackups) icBackups.style.display = rol === 'admin' ? '' : 'none';
   var icPapelera = document.getElementById('iconPapelera');
   if (icPapelera) icPapelera.style.display = rol === 'admin' ? '' : 'none';
+  // Tareas: el administrador y los técnicos principales (quien no es principal solo ve Estadísticas y Registro de horario)
+  var icTareas = document.getElementById('iconTareas');
+  if (icTareas) icTareas.style.display = (rol === 'admin' || (rol === 'tecnico' && !_esTecnicoSinPrincipal())) ? '' : 'none';
   setTimeout(_mostrarIconoUsuarios, 0);
   if (rol === 'admin') _comprobarBackupDiario();
 
@@ -374,6 +377,7 @@ function _aplicarSesion(nombre, rol, multiRol) {
     renderAsgAdmin();
     renderHistTecBtns();
     catActualizarBadge();
+    actualizarBadgeTareas();
   }
   _ocultarSplashPendiente = _ocultarSplashSiListo;
   var _syncPartesYaResuelto = false;
@@ -462,6 +466,7 @@ function _iniciarActualizacionPeriodica(){
     renderAsgTecnico();
     renderAsgAdmin();
     catActualizarBadge();
+    actualizarBadgeTareas();
     // Comprobación de conexión, solo si es relevante (admin actual, o técnico
     // con más de un rol disponible)
     if (_s2.multiRol || _s2.rol === 'admin') {
