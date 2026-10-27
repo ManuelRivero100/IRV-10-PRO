@@ -265,7 +265,9 @@ function renderAsgAdmin() {
     _db.collection('incidencias').where('vistaAdmin','==',false).get(),
     _db.collection('notificacionesTecnico').get(),
     _db.collection('materialesFlotantes').get(),
-    _db.collection('partesSinGuardar').get()
+    _db.collection('partesSinGuardar').get(),
+    // Tareas pendientes que un técnico creó o comentó y el administrador aún no ha visto (si esta consulta falla, el resto de avisos sigue igual)
+    _db.collection('tareasPendientes').where('vistaAdmin','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; })
   ]).then(function(resultados){
     var snap = resultados[0];
     var snapNotif = resultados[1];
@@ -280,7 +282,7 @@ function renderAsgAdmin() {
       var d=doc.data();
       if(ahoraMs-(d.generadoEn||0) >= LIMITE_SIN_GUARDAR_MS) partesSinGuardarPendientes.push(Object.assign({id:doc.id}, d));
     });
-    if (snap.empty && snapNotif.empty && snapMatFlotante.empty && !partesSinGuardarPendientes.length) { sec.style.display = 'none'; el.innerHTML=''; return; }
+    if (snap.empty && snapNotif.empty && snapMatFlotante.empty && !partesSinGuardarPendientes.length && resultados[4].empty) { sec.style.display = 'none'; el.innerHTML=''; return; }
     var html = '';
     snap.forEach(function(doc){
       var d = doc.data();
@@ -337,6 +339,7 @@ function renderAsgAdmin() {
         + '</div>'
         + '</div>';
     });
+    html += _tarAvisosHtml(resultados[4]);
     el.innerHTML = html;
     sec.style.display = 'block';
   }).catch(function(){ sec.style.display = 'none'; });

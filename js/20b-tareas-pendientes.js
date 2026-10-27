@@ -11,12 +11,13 @@ function _tarUltima(d){ var c=d.comentarios||[]; return c.length?c[c.length-1].t
 function actualizarBadgeTareas(){
   try{
     var b=$('tareasBadge'); if(!b||!window._sesion||typeof _db==='undefined'||!_db) return;
-    var q=_tarAdmin()?_tarCol().where('vistaAdmin','==',false):_tarCol().where('tecnico','==',_tarYo()).where('estado','==','pendiente');
+    // Administrador: todas las tareas activas de todos los técnicos. Técnico: solo las suyas.
+    var q=_tarAdmin()?_tarCol().where('estado','==','pendiente'):_tarCol().where('tecnico','==',_tarYo()).where('estado','==','pendiente');
     q.get().then(function(s){ b.textContent=s.size; b.style.display=s.size>0?'block':'none'; }).catch(function(){});
   }catch(e){} // un fallo aquí nunca debe afectar a la pantalla de inicio ni al inicio de sesión, que lo llaman
 }
-function abrirTareas(){
-  _tarSel=null; _tarTec=''; _tarSugs=[]; _tarCerradas=false;
+function abrirTareas(verRealizadas){
+  _tarSel=null; _tarTec=''; _tarSugs=[]; _tarCerradas=verRealizadas===true;
   $('tarCliente').value=''; $('tarComentario').value=''; $('tarMsg').textContent='';
   var ac=$('acTarCliente'); ac.classList.remove('show'); ac.innerHTML='';
   $('cardNuevaTarea').style.display='none';
@@ -78,19 +79,54 @@ function _tarFila(id){
       +'<div class="brow"><button class="btn btn-s" onclick="tarEnviar(\''+id+'\',false)">Añadir comentario</button><button class="btn btn-p" onclick="tarEnviar(\''+id+'\',true)">&#10003; Realizada</button></div><div id="tarMsg_'+id+'" class="msg"></div>')
     +'</div></div>';
 }
+// Pendientes del administrador: un desplegable por técnico con su número, primero los que tienen tareas (igual que Asignar).
+var _tarAbiertos={};
+function _tarGrupos(ids){
+  var por={}; _tarTecs.forEach(function(n){ por[n]=[]; });
+  ids.forEach(function(id){ var n=_tarCache[id].tecnico||'(sin asignar)'; (por[n]=por[n]||[]).push(id); });
+  return Object.keys(por).sort(function(a,b){ return por[b].length-por[a].length || a.localeCompare(b); }).map(function(n){
+    var k=n.replace(/[^a-z0-9]/gi,'_'), cant=por[n].length;
+    return '<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;">'
+      +'<button class="btn btn-s btn-full" style="justify-content:space-between;border-radius:0;" onclick="tarToggleGrupo(\''+k+'\')"><span>&#128119; '+escHtml(n)+'</span>'
+      +'<span style="background:'+(cant?'var(--green)':'var(--border2)')+';color:#fff;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:20px;min-width:22px;text-align:center;">'+cant+'</span></button>'
+      +'<div id="tarGrupo_'+k+'" style="display:'+(_tarAbiertos[k]?'block':'none')+';padding:10px;">'
+      +(cant?por[n].map(_tarFila).join(''):'<div style="color:var(--text2);font-size:.82rem;">Sin tareas pendientes.</div>')+'</div></div>';
+  }).join('');
+}
+// Avisos del administrador en el inicio ("Notificaciones pendientes"): tarea nueva, comentario o cierre de un técnico que aún no ha visto.
+// Al tocar el aviso se marca como visto y se abre Tareas con el desplegable de ese técnico abierto.
+function _tarAvisosHtml(snap){
+  var h='';
+  snap.forEach(function(doc){
+    var d=doc.data(), c=d.comentarios||[], u=c[c.length-1]||{};
+    var que=d.estado==='realizada'?'realizó la tarea':(c.length>1?'comentó':'creó una tarea');
+    h+='<div class="act-list-item" onclick="tarVerAviso(\''+doc.id+'\')"><span class="act-num">&#128221;</span>'
+      +'<div><div class="act-info">'+escHtml([d.cliente,d.tienda].filter(Boolean).join(' · '))+'</div>'
+      +'<div class="act-sub">Tarea · '+escHtml(u.por||d.creadoPor||'')+' '+que+' · Técnico: '+escHtml(d.tecnico)+'</div></div></div>';
+  });
+  return h;
+}
+function tarVerAviso(id){
+  _tarCol().doc(id).get().then(function(doc){
+    if(!doc.exists) return;
+    var d=doc.data(); _tarAbiertos[(d.tecnico||'(sin asignar)').replace(/[^a-z0-9]/gi,'_')]=true;
+    return _tarCol().doc(id).update({vistaAdmin:true}).then(function(){ abrirTareas(d.estado==='realizada'); });
+  }).catch(function(){ _toast('No se pudo abrir la tarea. Comprueba tu conexión.','var(--red)'); });
+}
+function tarToggleGrupo(k){ var el=$('tarGrupo_'+k); if(!el) return; var abrir=el.style.display==='none'; el.style.display=abrir?'block':'none'; _tarAbiertos[k]=abrir; }
 function tarRender(){
   var el=$('tarLista'); el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">Cargando…</div>';
   $('tarTitulo').innerHTML=_tarCerradas?'&#10003; Realizadas':'&#128221; Pendientes';
   $('tarBtnVer').textContent=_tarCerradas?'Ver pendientes':'Ver realizadas';
-  // El administrador ve todas las abiertas, más las ya realizadas que aún no ha visto; el técnico, solo las suyas.
-  var c=_tarCol(), est=_tarCerradas?'realizada':'pendiente', qs;
-  if(_tarAdmin()) qs=_tarCerradas?[c.where('estado','==',est)]:[c.where('estado','==',est),c.where('vistaAdmin','==',false)];
-  else qs=[c.where('tecnico','==',_tarYo()).where('estado','==',est)];
-  Promise.all(qs.map(function(q){ return q.get(); })).then(function(snaps){
+  // El administrador ve las de todos los técnicos (las pendientes agrupadas por técnico, como en Asignar); el técnico, solo las suyas.
+  var c=_tarCol(), est=_tarCerradas?'realizada':'pendiente';
+  var q=_tarAdmin()?c.where('estado','==',est):c.where('tecnico','==',_tarYo()).where('estado','==',est);
+  q.get().then(function(s){
     _tarCache={}; var ids=[];
-    snaps.forEach(function(s){ s.forEach(function(d){ if(!_tarCache[d.id]){ _tarCache[d.id]=d.data(); ids.push(d.id); } }); });
+    s.forEach(function(d){ _tarCache[d.id]=d.data(); ids.push(d.id); });
     ids.sort(function(a,b){ return _tarUltima(_tarCache[b])-_tarUltima(_tarCache[a]); });
-    el.innerHTML=ids.length?ids.slice(0,60).map(_tarFila).join(''):'<div style="color:var(--text2);font-size:.82rem;">No hay tareas.</div>';
+    if(_tarAdmin() && !_tarCerradas) el.innerHTML=_tarGrupos(ids);
+    else el.innerHTML=ids.length?ids.slice(0,60).map(_tarFila).join(''):'<div style="color:var(--text2);font-size:.82rem;">No hay tareas.</div>';
   }).catch(function(){ el.innerHTML='<div style="color:var(--red);font-size:.82rem;">No se pudieron cargar. Comprueba tu conexión.</div>'; });
 }
 function tarVerCerradas(){ _tarCerradas=!_tarCerradas; tarRender(); }
