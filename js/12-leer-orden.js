@@ -328,7 +328,6 @@ function leer(){
   if(!job){
     for(var jkp=0;jkp<jobKeysParte.length;jkp++){ if(t.toLowerCase().indexOf(jobKeysParte[jkp].toLowerCase())>=0){ job=jobKeysParte[jkp]; break; } }
   }
-  var fecha=cap(/FECHA[:\s]+(\d{2}\/\d{2}\/\d{4})/i,t);
   var arr=cap(/LLEGADA[:\s]+(\d{1,2}:\d{2})/i,t);
   var lea=cap(/SALIDA[:\s]+(\d{1,2}:\d{2})/i,t);
 
@@ -406,9 +405,8 @@ function leer(){
     if(kmVal){ $('km').value=kmVal; n++; }
     if(trVal){ $('tr').value=trVal; n++; }
   }
-  if(fecha){
-    var fp=fecha.split('/'); if(fp.length===3){ $('fecha').value=fp[2]+'-'+fp[1]+'-'+fp[0]; n++; }
-  }
+  // La fecha que trae el texto pegado es la programada por Mercadona, no el día en que se hizo el trabajo:
+  // no se lee, el parte conserva la fecha del formulario.
   if(arr){ $('arr').value=arr; n++; }
   if(lea){ $('lea').value=lea; n++; }
   if(obsVal){ $('obs').value=obsVal; n++; }

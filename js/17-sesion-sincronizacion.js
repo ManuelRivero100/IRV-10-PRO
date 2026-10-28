@@ -992,6 +992,18 @@ function eliminarIncidencia(id) {
 // ejecutarAsgTec y _asgTecActual movidos arriba, al bloque de script correcto, antes de su primer uso)
 
 function cerrarSesion() {
+  // Sin conexión, recargar solo funciona si la copia de la app guardada en el móvil está disponible; si no lo está, se avisa y la
+  // sesión se mantiene, en vez de dejar al usuario en la pantalla de error del navegador.
+  if (navigator.onLine === false && window.caches) {
+    caches.match('./index.html').then(function(r){
+      if (r) _cerrarSesionYRecargar();
+      else _toast('Sin conexión: la sesión se cerrará cuando vuelvas a tener internet.', 'var(--red)');
+    }).catch(_cerrarSesionYRecargar);
+    return;
+  }
+  _cerrarSesionYRecargar();
+}
+function _cerrarSesionYRecargar() {
   try { localStorage.removeItem('irv_sesion'); localStorage.removeItem('irv_pantalla'); } catch(e) { _fallo('cerrarSesion')(e); }
   location.reload();
 }
@@ -1072,8 +1084,20 @@ function _mostrarIconoUsuarios() {
   if (window._sesion && window._sesion.multiRol) {
     var btn = document.getElementById('btnCambiarRol');
     if (btn) { btn.style.display = ''; btn.textContent = rol === 'admin' ? '🔧 Técnico' : '⚙️ Admin'; }
+    _ajustarBotonRolPorConexion();
   }
 }
+// Pasar a administrador necesita internet: el botón se oculta al instante cuando el móvil se queda sin conexión y se vuelve a mostrar
+// cuando la recupera (antes solo se ocultaba en la siguiente comprobación periódica, que puede tardar minutos). Quien ya está como
+// administrador conserva su botón de pasar a técnico.
+function _ajustarBotonRolPorConexion(){
+  var s = window._sesion, btn = document.getElementById('btnCambiarRol');
+  if (!s || !s.multiRol || !btn || s.rol === 'admin') return;
+  if (navigator.onLine === false) btn.style.display = 'none';
+  else { btn.style.display = ''; btn.textContent = '⚙️ Admin'; }
+}
+window.addEventListener('offline', _ajustarBotonRolPorConexion);
+window.addEventListener('online', _ajustarBotonRolPorConexion);
 
 function pedirPinCambioRol() {
   var sesion = window._sesion;
