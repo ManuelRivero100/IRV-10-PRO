@@ -11,9 +11,14 @@ function _tarUltima(d){ var c=d.comentarios||[]; return c.length?c[c.length-1].t
 function actualizarBadgeTareas(){
   try{
     var b=$('tareasBadge'); if(!b||!window._sesion||typeof _db==='undefined'||!_db) return;
+    var clave=_tarAdmin()?'admin':_tarYo();
+    var poner=function(n){ b.textContent=n; b.style.display=n>0?'block':'none'; };
+    // Sin conexión se deja el último número que se vio (guardado en el móvil)
+    var desdeCopia=function(){ try{ var c=JSON.parse(localStorage.getItem('pm_cache_tareas_badge')||'null'); if(c&&c.clave===clave) poner(c.n); }catch(e){} };
+    if(navigator.onLine===false){ desdeCopia(); return; }
     // Administrador: todas las tareas activas de todos los técnicos. Técnico: solo las suyas.
     var q=_tarAdmin()?_tarCol().where('estado','==','pendiente'):_tarCol().where('tecnico','==',_tarYo()).where('estado','==','pendiente');
-    q.get().then(function(s){ b.textContent=s.size; b.style.display=s.size>0?'block':'none'; }).catch(function(){});
+    _conTimeout(q.get(),7000).then(function(s){ poner(s.size); try{ localStorage.setItem('pm_cache_tareas_badge',JSON.stringify({clave:clave,n:s.size})); }catch(e){} }).catch(desdeCopia);
   }catch(e){} // un fallo aquí nunca debe afectar a la pantalla de inicio ni al inicio de sesión, que lo llaman
 }
 function abrirTareas(verRealizadas){
@@ -156,6 +161,7 @@ function _tarAvisosTecnicoHtml(snap){
   return h;
 }
 function tarVerAvisoTecnico(id){
+  if(navigator.onLine===false){ _toast('Sin conexión: la tarea se podrá abrir cuando vuelvas a tener internet.','var(--red)'); return; }
   _tarCol().doc(id).get().then(function(doc){
     if(!doc.exists) return;
     var d=doc.data();
@@ -228,5 +234,91 @@ function tarEnviar(id,cerrar){
   if(cerrar) Object.assign(u,{estado:'realizada',cerradaPor:c.por,fechaCierre:c.ts});
   _tarCol().doc(id).update(u).then(function(){ _toast(cerrar?'Tarea realizada':'Comentario añadido'); tarRender(); actualizarBadgeTareas(); })
     .catch(function(){ showMsg('tarMsg_'+id,'No se pudo guardar. Comprueba tu conexión.'); });
+}
+
+// ===== AVISOS DEL TÉCNICO SIN CONEXIÓN =====
+// Lo que se le asigna al técnico (incidencias, solicitudes de reabrir rechazadas y tareas) solo existe en la nube. Cada vez que el inicio lo
+// carga bien se guarda una copia en el móvil (localStorage); sin conexión la lista sale de esa copia y se puede empezar una asignación con ella.
+var ASG_CACHE_KEY = 'pm_cache_asg_tec';
+function _asgCacheLeer(nombre){
+  try { var c = JSON.parse(localStorage.getItem(ASG_CACHE_KEY) || 'null'); return (c && (!nombre || c.nombre === nombre)) ? c : null; } catch(e) { return null; }
+}
+function _asgCacheGuardar(nombre, inc, rech, tar){
+  try { localStorage.setItem(ASG_CACHE_KEY, JSON.stringify({ nombre:nombre, ts:Date.now(), inc:inc, rech:rech, tar:tar })); } catch(e) {}
+}
+// Si la red no responde, no se espera eternamente: se rechaza y se usa la copia.
+function _conTimeout(p, ms){
+  return new Promise(function(res, rej){
+    var t = setTimeout(function(){ rej(new Error('timeout')); }, ms);
+    p.then(function(v){ clearTimeout(t); res(v); }, function(e){ clearTimeout(t); rej(e); });
+  });
+}
+function _asgTecAvisoSinConexion(nombre){
+  var c = _asgCacheLeer(nombre);
+  return '<div class="act-sub" style="margin-bottom:6px;">&#128244; Sin conexión · lista guardada el '+_fmtFechaHora(c ? c.ts : 0)+'</div>';
+}
+// Mismas filas de siempre, ahora a partir de datos sueltos (vengan de la nube o de la copia).
+function _asgTecHtml(inc, rech, tar){
+  var html = '';
+  inc.forEach(function(d){
+    var refs=[]; if(d.pedido) refs.push('Orden '+escHtml(d.pedido)); if(d.centro) refs.push('Centro '+escHtml(d.centro));
+    html += '<div class="act-list-item" onclick="abrirAsgTecOpciones(\''+d.id+'\')">'
+      + '<span class="act-num">&#128229;</span>'
+      + '<div><div class="act-info">'+escHtml(d.tienda)+'</div>'
+      + '<div class="act-sub">'+(refs.length?refs.join(' · ')+' · ':'')+escHtml(d.job)+'</div></div>'
+      + '</div>';
+  });
+  rech.forEach(function(d){
+    var refs=[]; if(d.pedido) refs.push('Orden '+escHtml(d.pedido)); if(d.centro) refs.push('Centro '+escHtml(d.centro));
+    html += '<div class="act-list-item" onclick="verSolicitudRechazada(\''+d.id+'\')">'
+      + '<span class="act-num" style="color:var(--red);">&#128274;</span>'
+      + '<div><div class="act-info">'+escHtml(d.tienda)+'</div>'
+      + '<div class="act-sub">'+(refs.length?refs.join(' · ')+' · ':'')+'Solicitud de reabrir rechazada</div></div>'
+      + '</div>';
+  });
+  return html + _tarAvisosTecnicoHtml({ forEach:function(f){ tar.forEach(function(d){ f({ id:d.id, data:function(){ return d; } }); }); } });
+}
+function _asgTecRender(miNombre, sec, el){
+  function pintar(inc, rech, tar, copia){
+    var html = _asgTecHtml(inc, rech, tar);
+    if (!html) { sec.style.display = 'none'; el.innerHTML = ''; return; }
+    el.innerHTML = (copia ? _asgTecAvisoSinConexion(miNombre) : '') + html; sec.style.display = 'block';
+  }
+  function desdeCopia(){
+    var c = _asgCacheLeer(miNombre);
+    if (c) pintar(c.inc || [], c.rech || [], c.tar || [], true); else sec.style.display = 'none';
+  }
+  if (navigator.onLine === false) { desdeCopia(); return; }
+  _conTimeout(Promise.all([
+    _db.collection('incidencias').where('tecnicoPrincipal','==',miNombre).where('estado','in',['pendiente','en-ejecucion']).get(),
+    _db.collection('incidencias').where('solicitudReabrir.tecnico','==',miNombre).get(),
+    // Tareas pendientes que le asignaron (o le comentaron) y aún no ha visto (si esta consulta falla, el resto de avisos sigue igual)
+    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('vistaTecnico','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; })
+  ]), 7000).then(function(r){
+    var inc = [], rech = [], tar = [];
+    r[0].forEach(function(doc){ var d = doc.data(); if (d.vista === true) return; inc.push(Object.assign({ id:doc.id }, d)); }); // ya vista por el técnico
+    r[1].forEach(function(doc){ var d = doc.data(); if (!d.solicitudReabrir || !d.solicitudReabrir.rechazada) return; rech.push(Object.assign({ id:doc.id }, d)); }); // aún no resuelta, o ya aceptada
+    r[2].forEach(function(doc){ tar.push(Object.assign({ id:doc.id }, doc.data())); });
+    _asgCacheGuardar(miNombre, inc, rech, tar);
+    pintar(inc, rech, tar, false);
+  }).catch(desdeCopia);
+}
+function _asgTecAbrirOpciones(id){
+  function mostrar(d){
+    _asgTecActual = d;
+    $('dlgAsgTecTitulo').textContent = _asgTecActual.tienda || 'Incidencia';
+    var refs=[]; if(_asgTecActual.pedido) refs.push('Orden '+_asgTecActual.pedido); if(_asgTecActual.centro) refs.push('Centro '+_asgTecActual.centro);
+    $('dlgAsgTecSub').textContent = (refs.length?refs.join(' · ')+' · ':'')+(_asgTecActual.job||'');
+    $('dlgAsgTec').classList.add('show');
+  }
+  function desdeCopia(){
+    var c = _asgCacheLeer(), d = c && (c.inc || []).find(function(x){ return x.id === id; });
+    if (d) mostrar(d); else _toast('Sin conexión: no se pudo abrir esta asignación.', 'var(--red)');
+  }
+  if (navigator.onLine === false) { desdeCopia(); return; }
+  _conTimeout(_db.collection('incidencias').doc(id).get(), 6000).then(function(doc){
+    if (!doc.exists) return;
+    mostrar(Object.assign({ id:doc.id }, doc.data()));
+  }).catch(desdeCopia);
 }
 

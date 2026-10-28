@@ -193,43 +193,7 @@ function renderAsgTecnico() {
   var miNombre = window._sesion.nombre;
   var _tec = getTecnicos().find(function(t){ return t.nombre.toLowerCase() === miNombre.toLowerCase(); });
   if (_tec) miNombre = _tec.nombre;
-  Promise.all([
-    _db.collection('incidencias')
-      .where('tecnicoPrincipal','==',miNombre)
-      .where('estado','in',['pendiente','en-ejecucion'])
-      .get(),
-    _db.collection('incidencias')
-      .where('solicitudReabrir.tecnico','==',miNombre)
-      .get(),
-    // Tareas pendientes que le asignaron (o le comentaron) y aún no ha visto (si esta consulta falla, el resto de avisos sigue igual)
-    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('vistaTecnico','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; })
-  ]).then(function(resultados){
-    var snap = resultados[0], snapRechazadas = resultados[1];
-    var html = '';
-    snap.forEach(function(doc){
-      var d = doc.data();
-      if (d.vista === true) return; // ya vista por el técnico
-      var refs=[]; if(d.pedido) refs.push('Orden '+escHtml(d.pedido)); if(d.centro) refs.push('Centro '+escHtml(d.centro));
-      html += '<div class="act-list-item" onclick="abrirAsgTecOpciones(\''+doc.id+'\')">'
-        + '<span class="act-num">&#128229;</span>'
-        + '<div><div class="act-info">'+escHtml(d.tienda)+'</div>'
-        + '<div class="act-sub">'+(refs.length?refs.join(' · ')+' · ':'')+escHtml(d.job)+'</div></div>'
-        + '</div>';
-    });
-    snapRechazadas.forEach(function(doc){
-      var d = doc.data();
-      if (!d.solicitudReabrir || !d.solicitudReabrir.rechazada) return; // aún no resuelta, o ya aceptada
-      var refs=[]; if(d.pedido) refs.push('Orden '+escHtml(d.pedido)); if(d.centro) refs.push('Centro '+escHtml(d.centro));
-      html += '<div class="act-list-item" onclick="verSolicitudRechazada(\''+doc.id+'\')">'
-        + '<span class="act-num" style="color:var(--red);">&#128274;</span>'
-        + '<div><div class="act-info">'+escHtml(d.tienda)+'</div>'
-        + '<div class="act-sub">'+(refs.length?refs.join(' · ')+' · ':'')+'Solicitud de reabrir rechazada</div></div>'
-        + '</div>';
-    });
-    html += _tarAvisosTecnicoHtml(resultados[2]);
-    if (!html) { sec.style.display = 'none'; el.innerHTML=''; }
-    else { el.innerHTML = html; sec.style.display = 'block'; }
-  }).catch(function(){ sec.style.display = 'none'; });
+  _asgTecRender(miNombre, sec, el);
 }
 
 function verSolicitudRechazada(id){
@@ -527,16 +491,7 @@ function ejecutarSolicitudReabrir(id) {
 }
 
 var _asgTecActual = null;
-function abrirAsgTecOpciones(id) {
-  _db.collection('incidencias').doc(id).get().then(function(doc){
-    if (!doc.exists) return;
-    _asgTecActual = Object.assign({id: doc.id}, doc.data());
-    $('dlgAsgTecTitulo').textContent = _asgTecActual.tienda || 'Incidencia';
-    var refs=[]; if(_asgTecActual.pedido) refs.push('Orden '+_asgTecActual.pedido); if(_asgTecActual.centro) refs.push('Centro '+_asgTecActual.centro);
-    $('dlgAsgTecSub').textContent = (refs.length?refs.join(' · ')+' · ':'')+(_asgTecActual.job||'');
-    $('dlgAsgTec').classList.add('show');
-  });
-}
+function abrirAsgTecOpciones(id) { _asgTecAbrirOpciones(id); }
 
 function consultarAsgTec() {
   if (!_asgTecActual) return;
