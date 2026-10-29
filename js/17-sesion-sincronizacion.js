@@ -562,6 +562,7 @@ function _sincronizarRegistroGlobal(callback){
       reg[key] = {
         pedido: d.pedido,
         tecnicoPrincipal: d.tecnicoPrincipal||'',
+        abiertaATodos: d.abiertaATodos===true,
         estado: d.estado||'pendiente',
         centro: d.centro||'',
         tienda: d.tienda||'',
@@ -906,6 +907,8 @@ function _tecnicosAsignables(){
 }
 
 var _asgIncidenciasPorTec = {};
+// Las órdenes abiertas a todos no son de ningún técnico: salen juntas, en su propio grupo, arriba de la lista.
+var _ASG_GRUPO_TODOS = 'Abiertas a todos';
 function renderAsgLista() {
   var el = $('asgLista'); if (!el || !curCliente) return;
   el.innerHTML = '<div style="color:var(--text2);font-size:.82rem;">Cargando...</div>';
@@ -914,7 +917,7 @@ function renderAsgLista() {
     _asgIncidenciasPorTec = {};
     snap.forEach(function(doc){
       var d = Object.assign({id: doc.id}, doc.data());
-      var nom = d.tecnicoPrincipal || '(sin asignar)';
+      var nom = d.abiertaATodos===true ? _ASG_GRUPO_TODOS : (d.tecnicoPrincipal || '(sin asignar)');
       if(!_asgIncidenciasPorTec[nom]) _asgIncidenciasPorTec[nom]=[];
       _asgIncidenciasPorTec[nom].push(d);
     });
@@ -922,6 +925,8 @@ function renderAsgLista() {
     var _sinLlenarParte = {};
     getTecnicos().forEach(function(t){ if(t.principal === false) _sinLlenarParte[t.nombre] = true; });
     var nombres = Object.keys(_asgIncidenciasPorTec).filter(function(n){ return !_sinLlenarParte[n]; }).sort(function(a,b){
+      if(a===_ASG_GRUPO_TODOS) return -1;
+      if(b===_ASG_GRUPO_TODOS) return 1;
       return (_asgIncidenciasPorTec[b].length) - (_asgIncidenciasPorTec[a].length);
     });
     if(!nombres.length){ el.innerHTML='<div style="color:var(--text2);font-size:.82rem;">No hay incidencias asignadas.</div>'; return; }
@@ -931,7 +936,7 @@ function renderAsgLista() {
       var key=nom.replace(/[^a-z0-9]/gi,'_');
       html += '<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;">'
         + '<button class="btn btn-s btn-full" style="justify-content:space-between;border-radius:0;" onclick="toggleCard(\'asgTecGrupo_'+key+'\',this)">'
-        + '<span>&#128119; '+escHtml(nom)+'</span>'
+        + '<span>'+(nom===_ASG_GRUPO_TODOS?'&#127760; ':'&#128119; ')+escHtml(nom)+'</span>'
         + '<span style="background:'+(cant>0?'var(--green)':'var(--border2)')+';color:#fff;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:20px;min-width:22px;text-align:center;">'+cant+'</span>'
         + '</button>'
         + '<div id="asgTecGrupo_'+key+'" style="display:none;padding:10px;">'
@@ -949,6 +954,7 @@ function _renderAsgTecGrupoBody(nom){
   });
   if(!lista.length) return '<div style="color:var(--text2);font-size:.82rem;">Sin incidencias asignadas.</div>';
   var tecs = _tecnicosAsignables();
+  var esGrupoTodos = (nom===_ASG_GRUPO_TODOS);
   var html='';
   lista.forEach(function(d){
     var estLabel = {pendiente:'⏳ Pendiente', 'en-ejecucion':'🔧 En ejecución', terminado:'✅ Terminado'}[d.estado]||d.estado;
@@ -960,22 +966,74 @@ function _renderAsgTecGrupoBody(nom){
     html += '<div style="margin-top:8px;"><label style="font-size:.75rem;color:var(--text2);font-weight:700;">Reasignar a:</label>'
       +'<select onchange="reasignarIncidencia(\''+d.id+'\',this.value)" style="width:100%;margin-top:4px;padding:6px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;">'
       +'<option value="">-- mantener --</option>'
-      +tecs.filter(function(t){ return t.nombre !== d.tecnicoPrincipal; }).map(function(t){return '<option value="'+escHtml(t.nombre)+'">'+escHtml(t.nombre)+'</option>';}).join('')
+      +tecs.filter(function(t){ return esGrupoTodos || t.nombre !== d.tecnicoPrincipal; }).map(function(t){return '<option value="'+escHtml(t.nombre)+'">'+escHtml(t.nombre)+'</option>';}).join('')
       +'</select></div>'
-      +'<button class="btn btn-d btn-sm" style="margin-top:8px;" onclick="eliminarIncidencia(\''+d.id+'\')">&#128465; Eliminar</button>';
+      +(esGrupoTodos
+        ? '<button class="btn btn-p btn-sm" style="margin-top:8px;" onclick="cerrarIncidenciaPorId(\''+d.id+'\')">&#9989; Cerrar</button>'
+        : '<button class="btn btn-s btn-sm" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+d.id+'\')">&#127760; Abrir a todos</button>')
+      +'<button class="btn btn-d btn-sm" style="margin-top:8px;margin-left:6px;" onclick="eliminarIncidencia(\''+d.id+'\')">&#128465; Eliminar</button>';
     html += '</div>';
   });
   return html;
 }
 
+// Reasignar a un técnico concreto también la saca de "Abiertas a todos".
 function reasignarIncidencia(id, nuevoTec) {
   if (!nuevoTec) return;
-  _db.collection('incidencias').doc(id).update(Object.assign({ tecnicoPrincipal: nuevoTec, vista:false }, _marcaModificacion('Reasignada a otro técnico'))).then(function(){
+  _db.collection('incidencias').doc(id).update(Object.assign({ tecnicoPrincipal: nuevoTec, abiertaATodos: false, vista:false }, _marcaModificacion('Reasignada a otro técnico'))).then(function(){
+    _sincronizarRegistroGlobal();
     renderAsgLista();
   }).catch(function(e){
     _fallo('reasignarIncidencia')(e);
     _toast('No se pudo reasignar la incidencia. Inténtalo de nuevo.', _AVISO_ROJO);
     renderAsgLista();
+  });
+}
+
+// Abre una orden a todos los técnicos que llenan parte: cualquiera puede continuarla y solo el administrador la cierra o reabre.
+function abrirIncidenciaATodos(id, despues) {
+  _confirmarApp('¿Abrir esta orden a todos los técnicos? Cualquiera que llene parte podrá continuarla, y solo el administrador la cerrará o reabrirá.', function(){
+    _db.collection('incidencias').doc(id).update(Object.assign({ abiertaATodos: true, vistaAdmin: true }, _marcaModificacion('Abierta a todos los técnicos'))).then(function(){
+      _sincronizarRegistroGlobal();
+      _toast('Orden abierta a todos los técnicos.');
+      if (despues) despues(); else renderAsgLista();
+    }).catch(function(e){
+      _fallo('abrirIncidenciaATodos')(e);
+      _toast('No se pudo abrir la orden. Inténtalo de nuevo.', _AVISO_ROJO);
+    });
+  });
+}
+
+// Cierra una orden desde Asignar o desde su aviso: la incidencia y todos sus partes pasan a terminado, igual que al cerrarla desde su resumen.
+function cerrarIncidenciaPorId(id, despues) {
+  _confirmarApp('¿Cerrar esta orden? La incidencia y todos sus partes pasan a terminados.', function(){
+    _db.collection('incidencias').doc(id).get().then(function(doc){
+      if (!doc.exists) return;
+      var d = doc.data();
+      return doc.ref.update(Object.assign({ estado: 'terminado' }, _marcaModificacion('Cierre directo'))).then(function(){
+        return _db.collection('partes').where('pedido','==',d.pedido).where('centro','==',d.centro).get();
+      }).then(function(snap){
+        return Promise.all(snap.docs.filter(function(p){ return (p.data().clienteId||'mercadona')===(d.clienteId||'mercadona'); }).map(function(p){
+          return p.ref.update({ estado: 'terminado', fechaModificacion: Date.now(), ultimaModificacionRazon: 'Cierre de incidencia (sincronizado)' });
+        }));
+      }).then(function(){
+        var h = getH();
+        h.forEach(function(r){ if (r.pedido===d.pedido && r.centro===d.centro && (r.clienteId||'mercadona')===(d.clienteId||'mercadona')) r.estado='terminado'; });
+        setH(h);
+        try {
+          var estados = JSON.parse(localStorage.getItem('pm_incidencias_estados')||'{}');
+          estados[(d.pedido||'')+'||'+(d.centro||'')] = 'terminado';
+          localStorage.setItem('pm_incidencias_estados', JSON.stringify(estados));
+        } catch(e) { _fallo('cerrarIncidenciaPorId estados')(e); }
+        _sincronizarRegistroGlobal();
+        refreshCounts();
+        _toast('Orden cerrada.');
+        if (despues) despues(); else renderAsgLista();
+      });
+    }).catch(function(e){
+      _fallo('cerrarIncidenciaPorId')(e);
+      _toast('No se pudo cerrar la orden. Inténtalo de nuevo.', _AVISO_ROJO);
+    });
   });
 }
 

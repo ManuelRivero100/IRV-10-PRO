@@ -245,7 +245,6 @@ function getTD(fecha){
 
 function mostrarDlgInicioOrden(){
   var clienteId=curCliente?curCliente.id:'mercadona';
-  var sinAsig=_clienteSinAsignacion(clienteId);
   var h=getH();
   var esTecnico=window._sesion && window._sesion.rol==='tecnico';
   var miNombre=esTecnico?window._sesion.nombre.toLowerCase():null;
@@ -256,7 +255,7 @@ function mostrarDlgInicioOrden(){
     if((r.clienteId||'mercadona')!==clienteId) continue;
     var estadoReal=_getEstadoIncidencia(r.pedido, r.centro) || r.estado || 'terminado';
     if(estadoReal!=='en-ejecucion') continue;
-    if(esTecnico && !sinAsig){
+    if(esTecnico && !_ordenAbiertaATodos(r.pedido, r.clienteId||'mercadona')){
       var reg=_registroGlobal(r.pedido, r.clienteId||'mercadona');
       var esMio = reg ? (reg.tecnicoPrincipal && reg.tecnicoPrincipal.toLowerCase()===miNombre)
                        : (r.tecnicos && r.tecnicos[0] && r.tecnicos[0].toLowerCase()===miNombre);
@@ -274,7 +273,7 @@ function mostrarDlgInicioOrden(){
       Object.keys(regGlobal).forEach(function(key){
         var g=regGlobal[key];
         var pedido=g.pedido; if(!pedido) return;
-        if(!sinAsig && (!g.tecnicoPrincipal || g.tecnicoPrincipal.toLowerCase()!==miNombre)) return;
+        if(g.abiertaATodos!==true && (!g.tecnicoPrincipal || g.tecnicoPrincipal.toLowerCase()!==miNombre)) return;
         if(g.estado!=='en-ejecucion') return;
         if((g.clienteId||'mercadona')!==clienteId) return;
         var k=pedido+'||'+g.centro;
@@ -497,8 +496,8 @@ function verOrden(enc){
 
   var _sinCertOrden=partesTodas.filter(function(p){ return !p.r.bloqueCertificado; }).length;
   var _mostrarCertBtn=_esAdmin() && lastEstado==='en-ejecucion' && _sinCertOrden>=4;
-  // En un cliente sin asignación solo el administrador cierra y reabre
-  var _soloAdmin=_clienteSinAsignacion(g.clienteId||'mercadona') && !_esAdmin();
+  // En una orden abierta a todos solo el administrador cierra y reabre
+  var _soloAdmin=_ordenAbiertaATodos(pedido, g.clienteId||'mercadona') && !_esAdmin();
 
   var ordenTitle=g.actObras?g.actObras+' &middot; '+g.job:'Orden '+pedido+' &middot; '+g.job;
 

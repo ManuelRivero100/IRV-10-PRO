@@ -325,19 +325,17 @@ function renderClientes(){
       }
     }
   });
-  // Clientes sin asignación: cuentan todas sus órdenes activas, porque cualquier técnico principal puede continuarlas
+  // Órdenes abiertas a todos: cuentan como activas para cualquier técnico principal, porque cualquiera puede continuarlas
   if(_esTec){
-    var _sinAsigIds={};
-    lista.forEach(function(c){ if(c.conAsignacion===false) _sinAsigIds[c.id]=true; });
     var _regG={};
     try { _regG=JSON.parse(localStorage.getItem('pm_registro_global')||'{}'); } catch(e) { _fallo('renderClientes')(e); }
     Object.keys(_regG).forEach(function(kg){
       var g=_regG[kg];
-      if(!_sinAsigIds[g.clienteId]) return;
+      if(g.abiertaATodos!==true) return;
       var k=g.clienteId+'||'+g.pedido+'||'+(g.centro||'');
       if(!ordenes[k]) ordenes[k]={cid:g.clienteId,estado:g.estado,fecha:'',esPrincipal:true};
+      else ordenes[k].esPrincipal=true;
     });
-    Object.values(ordenes).forEach(function(o){ if(_sinAsigIds[o.cid]) o.esPrincipal=true; });
   }
   Object.values(ordenes).forEach(function(o){
     if(!stats[o.cid]) return;

@@ -198,7 +198,7 @@ function generarCore(){
     var _pedidoCheck=($('pedido').value||'').trim();
     if(_pedidoCheck){
       var _regCheck=_registroGlobal(_pedidoCheck, curCliente?curCliente.id:'mercadona');
-      if(_regCheck && !_clienteSinAsignacion(curCliente?curCliente.id:'mercadona') && _regCheck.tecnicoPrincipal && _regCheck.tecnicoPrincipal.toLowerCase()!==window._sesion.nombre.toLowerCase()){
+      if(_regCheck && !_ordenAbiertaATodos(_pedidoCheck, curCliente?curCliente.id:'mercadona') && _regCheck.tecnicoPrincipal && _regCheck.tecnicoPrincipal.toLowerCase()!==window._sesion.nombre.toLowerCase()){
         _mostrarBloqueoIncidenciaDeOtro();
         return;
       }

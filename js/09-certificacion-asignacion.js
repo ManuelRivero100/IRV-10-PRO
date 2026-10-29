@@ -396,15 +396,17 @@ function verAsgAdminAviso(id, clienteId) {
       + (d.verificarDatos?'<div class="rrow info-row" style="color:var(--amber);font-weight:600;"><span class="rc">&#9888;&#65039; Aviso</span><span class="rl">Datos por lectura autom&aacute;tica — verificar y validar</span><span class="rv"></span></div>':'')
       + (refs.length?'<div class="rrow info-row"><span class="rc">Datos</span><span class="rl">'+refs.join(' · ')+'</span><span class="rv"></span></div>':'')
       + '<div class="rrow info-row"><span class="rc">Trabajo</span><span class="rl">'+(d.job||'')+'</span><span class="rv"></span></div>'
-      + '<div class="rrow info-row"><span class="rc">T&eacute;cnico</span><span class="rl">'+(d.tecnicoPrincipal||'')+'</span><span class="rv"></span></div>'
+      + '<div class="rrow info-row"><span class="rc">T&eacute;cnico</span><span class="rl">'+(d.abiertaATodos===true?'Abierta a todos los t&eacute;cnicos':escHtml(d.tecnicoPrincipal||''))+'</span><span class="rv"></span></div>'
       + (d.dir?'<div class="rrow info-row"><span class="rc">Direcci&oacute;n</span><span class="rl">'+d.dir+'</span><span class="rv"></span></div>':'')
       + (d.tel?'<div class="rrow info-row"><span class="rc">Tel&eacute;fono</span><span class="rl">'+d.tel+'</span><span class="rv"></span></div>':'')
       + (d.km?'<div class="rrow info-row"><span class="rc">Km</span><span class="rl">'+d.km+'</span><span class="rv"></span></div>':'')
       + (d.tr?'<div class="rrow info-row"><span class="rc">Despl.</span><span class="rl">'+d.tr+' min</span><span class="rv"></span></div>':'')
       + (d.descripcion?'<div class="rrow obs-row"><span class="rc">Descripci&oacute;n</span><span class="rl">'+d.descripcion.replace(/\n/g,'<br>')+'</span><span class="rv"></span></div>':'')
       + '</div>'
-      + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="verAsgAdminReasignar(\''+clienteId+'\',\''+id+'\')">&#128260; Ver / reasignar</button>'
-      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="goTo(\'w-clientes\')">&#8592; Atr&aacute;s</button>';
+      + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="goTo(\'w-clientes\')">&#10003; '+(d.abiertaATodos===true?'Dejar abierta a todos':'Mantener a '+escHtml(d.tecnicoPrincipal||'su t&eacute;cnico'))+'</button>'
+      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="verAsgAdminReasignar(\''+clienteId+'\',\''+id+'\')">&#128260; Cambiar de t&eacute;cnico</button>'
+      + (d.abiertaATodos===true?'':'<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+id+'\', function(){ goTo(\'w-clientes\'); })">&#127760; Abrir a todos</button>')
+      + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="cerrarIncidenciaPorId(\''+id+'\', function(){ goTo(\'w-clientes\'); })">&#9989; Cerrar la orden</button>';
     $('consultaAsgBody').innerHTML = html;
     goTo('w-consultaAsg');
     // El aviso se da por visto en cuanto se abre: al volver al inicio ya no sale (antes seguía hasta entrar en Asignar)

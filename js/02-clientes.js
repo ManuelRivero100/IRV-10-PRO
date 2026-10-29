@@ -222,25 +222,16 @@ function setNcTipo(v,btn){
   btn.classList.add('active');
   $('nc-tipo').value=v;
 }
-var _ncAsig=true;
-function ncPonerAsig(v){
-  _ncAsig=v;
-  $('nc-asig').className='btn btn-full '+(v?'btn-p':'btn-s');
-  $('nc-asig-info').textContent=v
-    ? 'Solo el técnico asignado a la incidencia puede continuarla.'
-    : 'Sin asignación: cualquier técnico principal puede continuar la orden y solo el administrador la cierra o reabre.';
-}
-function ncToggleAsig(){ ncPonerAsig(!_ncAsig); }
 function guardarNuevoCliente(){
   var n=$('nc-nombre').value.trim(); if(!n){ showMsg('msgNc','Introduce el nombre del cliente.','error'); return; }
   var jobs=$('nc-jobs').value.split(',').map(function(j){ return j.trim(); }).filter(Boolean);
   if(!jobs.length) jobs=['Trabajos'];
   var id='c_'+Date.now();
-  var c={id:id,nombre:n,tipo:_ncTipo,jobs:jobs,codigos:false,precios:_ncTipo==='particular',conAsignacion:_ncAsig};
+  var c={id:id,nombre:n,tipo:_ncTipo,jobs:jobs,codigos:false,precios:_ncTipo==='particular'};
   var extra=JSON.parse(localStorage.getItem('pm_clientes')||'[]');
   extra.push(c); localStorage.setItem('pm_clientes',JSON.stringify(extra));
   _subirClienteAFirestore(c);
-  $('nc-nombre').value=''; $('nc-jobs').value=''; ncPonerAsig(true);
+  $('nc-nombre').value=''; $('nc-jobs').value='';
   renderClientes(); goTo('w-clientes');
 }
 

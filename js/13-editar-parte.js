@@ -235,7 +235,6 @@ function renderHistTecBtns(){
   var rol = window._sesion && window._sesion.rol;
   var h = getHVisible();
   var cliId = curCliente && curCliente.id;
-  var sinAsig = _clienteSinAsignacion(cliId);
   var badgeStyle='position:absolute;top:-6px;right:-8px;background:var(--green);color:#06210f;font-size:.6rem;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--surface);';
 
   if(rol === 'tecnico'){
@@ -245,7 +244,7 @@ function renderHistTecBtns(){
     h.forEach(function(r){
       if((r.clienteId||'mercadona') !== cliId) return;
       var reg=_registroGlobal(r.pedido, r.clienteId||'mercadona');
-      var tecReal = (reg && !sinAsig) ? reg.tecnicoPrincipal : (r.tecnicos && r.tecnicos[0]);
+      var tecReal = (reg && reg.abiertaATodos!==true) ? reg.tecnicoPrincipal : (r.tecnicos && r.tecnicos[0]);
       if(!(tecReal && tecReal.toLowerCase() === miNombre)) return;
       var estadoReal = reg ? reg.estado : (r.estado||'terminado');
       var k = (r.clienteId||'mercadona')+'||'+r.pedido+'||'+(r.centro||'');
@@ -267,7 +266,7 @@ function renderHistTecBtns(){
     h.forEach(function(r){
       if((r.clienteId||'mercadona') !== cliId) return;
       var reg=_registroGlobal(r.pedido, r.clienteId||'mercadona');
-      var t = (reg && !sinAsig) ? reg.tecnicoPrincipal : (r.tecnicos && r.tecnicos[0]);
+      var t = (reg && reg.abiertaATodos!==true) ? reg.tecnicoPrincipal : (r.tecnicos && r.tecnicos[0]);
       if(!t) return;
       var estadoReal = reg ? reg.estado : (r.estado||'terminado');
       var k = (r.clienteId||'mercadona')+'||'+r.pedido+'||'+(r.centro||'');
@@ -326,13 +325,12 @@ function verSecTecnico(nomTecnico){
   _secActual = 'tec_'+nomTecnico;
   _secAbrirVista();
   var cliId = curCliente && curCliente.id;
-  var sinAsig = _clienteSinAsignacion(cliId);
   var ords = getOrdenes().filter(function(g){ return (g.partes[0] && (g.partes[0].r.clienteId||'mercadona')) === cliId; });
   // Filtrar incidencias donde este técnico es/fue el principal real
   var nomL = nomTecnico.toLowerCase();
   ords = ords.filter(function(g){
     var reg=_registroGlobal(g.pedido, g.partes[0] && (g.partes[0].r.clienteId||'mercadona'));
-    if(reg && !sinAsig) return reg.tecnicoPrincipal && reg.tecnicoPrincipal.toLowerCase()===nomL;
+    if(reg && reg.abiertaATodos!==true) return reg.tecnicoPrincipal && reg.tecnicoPrincipal.toLowerCase()===nomL;
     return g.partes.some(function(p){ return p.r.tecnicos && p.r.tecnicos[0] && p.r.tecnicos[0].toLowerCase()===nomL; });
   });
   var hdr = $('secHdr');

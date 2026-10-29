@@ -173,17 +173,17 @@ function buscarPorOrden(val){
   var esTecnico=window._sesion && window._sesion.rol==='tecnico';
   var esTecnicoPuro=esTecnico && !window._sesion.multiRol;
   var miNombre=esTecnico?window._sesion.nombre.toLowerCase():null;
-  var sinAsig=_clienteSinAsignacion(curCliente?curCliente.id:'mercadona');
+  var abierta=_ordenAbiertaATodos(val.trim(), curCliente?curCliente.id:'mercadona');
   // Bloqueo por registro global (funciona offline): solo en coincidencia EXACTA y solo para técnico
   if(esTecnico){
     var reg=_registroGlobal(val.trim(), curCliente && curCliente.id);
     if(reg){
-      var esDeOtro = !sinAsig && reg.tecnicoPrincipal && reg.tecnicoPrincipal.toLowerCase()!==miNombre;
+      var esDeOtro = !abierta && reg.tecnicoPrincipal && reg.tecnicoPrincipal.toLowerCase()!==miNombre;
       if(esDeOtro){
         _mostrarBloqueoIncidenciaDeOtro();
         return;
       }
-      if(reg.estado==='terminado' && sinAsig){
+      if(reg.estado==='terminado' && abierta){
         box.innerHTML='<div class="ac-item" style="color:var(--text2)"><span style="margin-right:6px;">&#128274;</span>Orden '+val.trim()+' &mdash; cerrada. Solo el administrador puede reabrirla.</div>';
         box.classList.add('show');
         return;
@@ -216,7 +216,7 @@ function buscarPorOrden(val){
     seleccionarOrdenActiva(exactaIdx);
     return;
   }
-  if(esTecnico && sinAsig){
+  if(esTecnico && abierta){
     box.innerHTML='<div class="ac-item" style="color:var(--text2)"><span style="margin-right:6px;">&#128274;</span>'+exacta.pedido+' &mdash; '+(exacta.tienda||exacta.centro)+
       ' <span class="badge badge-g" style="font-size:.66rem;">Cerrada &middot; Solo el administrador puede reabrirla</span></div>';
   } else if(esTecnicoPuro){
@@ -577,15 +577,16 @@ function verOrdenDesdeSearch(enc){
 
 function limpiarFiltros(){ $('busca').value=''; $('buscaF').value=''; refreshCounts(); renderSearchResults(); }
 
-// Cliente sin asignación (conAsignacion:false en su ficha): cualquier técnico principal continúa sus órdenes.
-function _clienteSinAsignacion(id){
-  var c=getClientes().find(function(x){ return x.id===id; });
-  return !!(c && c.conAsignacion===false);
+// Orden abierta a todos (la decide el administrador, orden por orden): cualquier técnico que llena parte puede continuarla y solo el
+// administrador la cierra o reabre. Por defecto toda orden es del técnico que la abre. Se lee del registro global (funciona sin conexión).
+function _ordenAbiertaATodos(pedido, clienteId){
+  var r=_registroGlobal(pedido, clienteId||'mercadona');
+  return !!(r && r.abiertaATodos===true);
 }
 function mostrarDialogoEstado(){
   if(!window.recTmp){ showMsg('msgRes','Genera el parte primero.','warn'); return; }
-  // En un cliente sin asignación no se pregunta: la orden sigue abierta y solo el administrador la cierra o reabre.
-  if(_clienteSinAsignacion(window.recTmp.clienteId||'mercadona')){
+  // En una orden abierta a todos no se pregunta: la orden sigue abierta y solo el administrador la cierra o reabre.
+  if(_ordenAbiertaATodos(window.recTmp.pedido, window.recTmp.clienteId||'mercadona')){
     guardarConEstado(_getEstadoIncidencia(window.recTmp.pedido, window.recTmp.centro) || 'en-ejecucion');
     return;
   }
