@@ -222,16 +222,44 @@ function setNcTipo(v,btn){
   btn.classList.add('active');
   $('nc-tipo').value=v;
 }
+// Tipos de trabajo del cliente nuevo: botones que se activan y se desactivan (antes se escribían separados por coma y un punto y coma o una
+// "y" los juntaba en un solo tipo). Los tres de siempre vienen activados; "Otro" añade un tipo más, escrito de uno en uno.
+var _NC_JOBS_BASE=['Climatización','Conductos','Electricidad'];
+var _ncJobs={};
+function ncJobsReset(){
+  _ncJobs={};
+  _NC_JOBS_BASE.forEach(function(j){ _ncJobs[j]=true; });
+  var o=$('nc-job-otro'); if(o) o.value='';
+  ncJobsRender();
+}
+function ncJobsRender(){
+  var el=$('nc-jobs-tgl'); if(!el) return;
+  el.innerHTML=Object.keys(_ncJobs).map(function(j){
+    return '<button type="button" class="'+(_ncJobs[j]?'active':'')+'" data-j="'+escHtml(j)+'" onclick="ncJobToggle(this.getAttribute(\'data-j\'))">'+escHtml(j)+'</button>';
+  }).join('');
+}
+function ncJobToggle(j){ if(j in _ncJobs){ _ncJobs[j]=!_ncJobs[j]; ncJobsRender(); } }
+function ncJobOtro(){
+  var inp=$('nc-job-otro'); if(!inp) return;
+  var v=inp.value.trim(); if(!v) return;
+  if(/[,;]/.test(v)){ showMsg('msgNc','Escribe un solo tipo de trabajo por vez, sin comas ni punto y coma.','error'); return; }
+  v=v.charAt(0).toUpperCase()+v.slice(1);
+  var igual=Object.keys(_ncJobs).find(function(k){ return k.toLowerCase()===v.toLowerCase(); });
+  _ncJobs[igual||v]=true;
+  inp.value=''; $('msgNc').className='msg'; $('msgNc').textContent='';
+  ncJobsRender();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ncJobsReset); else ncJobsReset();
 function guardarNuevoCliente(){
   var n=$('nc-nombre').value.trim(); if(!n){ showMsg('msgNc','Introduce el nombre del cliente.','error'); return; }
-  var jobs=$('nc-jobs').value.split(',').map(function(j){ return j.trim(); }).filter(Boolean);
-  if(!jobs.length) jobs=['Trabajos'];
+  var jobs=Object.keys(_ncJobs).filter(function(j){ return _ncJobs[j]; });
+  if(!jobs.length){ showMsg('msgNc','Activa al menos un tipo de trabajo.','error'); return; }
   var id='c_'+Date.now();
   var c={id:id,nombre:n,tipo:_ncTipo,jobs:jobs,codigos:false,precios:_ncTipo==='particular'};
   var extra=JSON.parse(localStorage.getItem('pm_clientes')||'[]');
   extra.push(c); localStorage.setItem('pm_clientes',JSON.stringify(extra));
   _subirClienteAFirestore(c);
-  $('nc-nombre').value=''; $('nc-jobs').value='';
+  $('nc-nombre').value=''; ncJobsReset();
   renderClientes(); goTo('w-clientes');
 }
 

@@ -29,6 +29,10 @@ function _restaurarDePapelera(idPapelera){
     });
   });
 }
+// Borrado definitivo desde la pantalla de Papelera: quita la copia de la papelera y ya no se puede recuperar.
+function _purgarDePapelera(idPapelera){
+  return _db.collection('papelera').doc(idPapelera).delete();
+}
 
 function borrarParteOk(i){
   var h=getH(); var r=h[i]; if(!r){ return; }

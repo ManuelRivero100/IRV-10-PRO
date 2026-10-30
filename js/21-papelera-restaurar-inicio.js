@@ -27,12 +27,19 @@ function _renderPapelera(){
         +'<div style="font-size:.78rem;color:var(--text2);margin-bottom:10px;">Borrado por '+escHtml(it.eliminadoPor||'—')+' · '+_fmtFechaHora(it.eliminadoFecha||0)+'<br>Motivo: '+escHtml(it.eliminadoRazon||'—')+'</div>'
         +'<div class="brow">'
         +'<button class="btn btn-g btn-sm" onclick="_restaurarDePapeleraUI(\''+it._id+'\')">&#9989; Restaurar</button>'
+        +(_esAdmin()?'<button class="btn btn-d btn-sm" onclick="_purgarDePapeleraUI(\''+it._id+'\')">&#128465; Eliminar definitivamente</button>':'')
         +'</div></div>';
     }).join('');
   }).catch(function(){ el.innerHTML='<p style="font-size:.85rem;color:var(--red);padding:10px 0;">Error al consultar la papelera.</p>'; });
 }
 function _restaurarDePapeleraUI(idPapelera){
   _restaurarDePapelera(idPapelera).then(function(){ _renderPapelera(); }).catch(function(){ _toast('No se pudo restaurar. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
+}
+function _purgarDePapeleraUI(idPapelera){
+  if(!_esAdmin()) return;
+  _confirmarApp('¿Eliminar definitivamente? Esto ya no se puede deshacer.', function(){
+    _purgarDePapelera(idPapelera).then(function(){ _renderPapelera(); }).catch(function(){ _toast('No se pudo eliminar. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
+  });
 }
 
 // Arranca la comprobación de versión automática, en el mismo bloque donde vive la función —
