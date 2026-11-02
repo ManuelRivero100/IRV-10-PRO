@@ -285,7 +285,7 @@ function generarCore(){
     // desde una pareja conocida (buscarEnlacePar), es nuevo — se guarda para la próxima
     // vez, en los dos sentidos a la vez (misma clave, ver parEnlaceKey).
     var _centroDestinoVal=$('enlaceDestinoCentro')?$('enlaceDestinoCentro').value.trim():'';
-    if(_centroDestinoVal && $('kmS') && !$('kmS').readOnly){
+    if(!window._modoSimulacion && _centroDestinoVal && $('kmS') && !$('kmS').readOnly){
       _subirEnlaceEntry(curCliente?curCliente.id:'mercadona', $('centro').value.trim(), _centroDestinoVal, _enlaceDestino, ks, ts);
     }
   } else if(curLink==='Auto'){
@@ -575,11 +575,47 @@ function generarCore(){
       });
     })()
   };
+  window.recTmp.entrada=_capturarEntradaFormulario(esNocturno, same);
+  if(window._modoSimulacion) return;
   _guardarBorradorParte();
   document.querySelectorAll('.win').forEach(function(win){ win.classList.remove('active'); });
   $('w-result').classList.add('active');
   window.scrollTo(0,0);
 }
+// Copia de lo que el técnico escribió en el formulario al generar el parte. Se guarda dentro del
+// parte como "entrada": permite recalcularlo con exactamente los mismos datos y restaurar al
+// editar lo que el parte ya calculado no guarda (nº de coches, "todos enlazan", km adicionales).
+// "previos" son los partes del mismo día y técnico que la app tuvo en cuenta al calcular (la
+// dieta y el enlace automático dependen de ellos). "cierre" lo rellena el guardado con lo que
+// el técnico elige en "Sigue abierta" / "Cerrar".
+function _capturarEntradaFormulario(esNocturno, previos){
+  var v=function(id){ var e=$(id); return e?String(e.value==null?'':e.value):''; };
+  return {
+    v:1,
+    fecha:v('fecha'), arr:v('arr'), lea:v('lea'),
+    job:curJob, clienteId:curCliente?curCliente.id:'mercadona',
+    pedido:v('pedido'), numParte:v('numParte').trim(), centro:v('centro'), tienda:v('tienda'), dir:v('dir'), tel:v('tel'),
+    trabajadores:Math.max(1,Math.min(4,+$('w').value||0)),
+    nombres:wNames.slice(), roles:wRoles.slice(),
+    enlace:curLink, origen:curOrigen,
+    km:v('km'), tr:v('tr'),
+    kmE:v('kmE'), trE:v('trE'), kmS:v('kmS'), trS:v('trS'),
+    enlaceDestinoCentro:v('enlaceDestinoCentro'), enlaceDestino:v('enlaceDestino'),
+    kmA:v('kmA'), trA:v('trA'),
+    kmOtroIda:v('kmOtroIda'), trOtroIda:v('trOtroIda'), kmOtroVuelta:v('kmOtroVuelta'), trOtroVuelta:v('trOtroVuelta'),
+    otroPartidaDesde:v('otroPartidaDesde'), otroLlegadaHacia:v('otroLlegadaHacia'),
+    ncoches:v('ncoches'), todosEnlazan:v('todosEnlazan'),
+    kmAdicionales:v('kmAdicionales'), kmAdicionalesJust:v('kmAdicionalesJust').trim(),
+    festivo:!!esFestivo, nocturno:!!esNocturno,
+    enlaceAuto:aeData?{kmDif:aeData.kmDif||0, trDif:aeData.trDif||0}:null,
+    previos:(previos||[]).map(function(x){
+      return {clienteId:x.clienteId||'mercadona', pedido:x.pedido||'', centro:x.centro||'', arr:x.arr||'', lea:x.lea||'',
+        totalMin:x.totalMin||0, dieta:!!x.dieta, linkType:x.linkType||'No', horaEnlace:x.horaEnlace||0, kmDif:x.kmDif||0, trDif:x.trDif||0};
+    }),
+    cierre:null
+  };
+}
+
 // Guarda de inmediato en Firestore una copia del parte recién generado, identificada igual
 // que tendría el parte real (fecha+pedido+centro+cliente) — así, si el técnico nunca llega a
 // guardarlo de verdad (olvido, pérdida de conexión, cierre de la app), el dato no se pierde:

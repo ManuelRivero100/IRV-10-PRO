@@ -345,6 +345,8 @@ function _aplicarSesion(nombre, rol, multiRol) {
   if (icBackups) icBackups.style.display = rol === 'admin' ? '' : 'none';
   var icPapelera = document.getElementById('iconPapelera');
   if (icPapelera) icPapelera.style.display = rol === 'admin' ? '' : 'none';
+  var icComparar = document.getElementById('iconComparar');
+  if (icComparar) icComparar.style.display = rol === 'admin' ? '' : 'none';
   // Tareas: el administrador y los técnicos principales (quien no es principal solo ve Estadísticas y Registro de horario)
   var icTareas = document.getElementById('iconTareas');
   if (icTareas) icTareas.style.display = (rol === 'admin' || (rol === 'tecnico' && !_esTecnicoSinPrincipal())) ? '' : 'none';

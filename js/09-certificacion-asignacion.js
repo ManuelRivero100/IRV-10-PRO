@@ -374,6 +374,7 @@ function _confirmarTerminarGuardado(estado){
   var r=Object.assign({}, d);
   delete r.generadoEn;
   r.estado=estado;
+  if(r.entrada) r.entrada.cierre=estado;
   r.creadoPor=d.tecnicoGenerador||'';
   delete r.tecnicoGenerador;
   var h=getH();

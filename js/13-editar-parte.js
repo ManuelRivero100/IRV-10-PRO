@@ -474,6 +474,7 @@ function _marcarParteBorrarPendiente(docId, razon){
 function _finalizarGuardado(estado){
   var r=window.recTmp; if(!r) return;
   r.estado=estado;
+  if(r.entrada) r.entrada.cierre=estado;
   var h=getH();
   // Recuperar _editIdx desde backup si se perdió durante generarCore
   if(_editIdx===null&&window._editIdxBackup!==null&&window._editIdxBackup!==undefined){
@@ -701,6 +702,18 @@ function abrirEdicionParte(idx){
   if(_ddEdit) _ddEdit.value=r.descIncidencia||'';
   if(_fdEdit) _fdEdit.style.display=r.descIncidencia?'block':'none';
   window._notaKmAdicionalOriginal=r.notaKmAdicional||'';
+  // Nº de coches, "todos enlazan" y km adicionales: el parte calculado no los guarda, solo el
+  // bloque "entrada". Los partes anteriores a ese bloque no lo tienen y se editan como siempre.
+  var _enEdit=r.entrada;
+  if(_enEdit){
+    $('ncoches').value=_enEdit.ncoches||'1';
+    var _todosEdit=(_enEdit.todosEnlazan==='No')?'No':'Si';
+    $('todosEnlazan').value=_todosEdit;
+    document.querySelectorAll('#todosEnlazanTgl button').forEach(function(b,i){ b.classList.toggle('active',(i===0)===(_todosEdit==='Si')); });
+    $('kmAdicionales').value=_enEdit.kmAdicionales||'';
+    $('kmAdicionalesJust').value=_enEdit.kmAdicionalesJust||'';
+    _actualizarTodosEnlazanVisibilidad();
+  }
   var _fnaEdit=$('fieldNotaKmAdic'), _nkdEdit=$('notaKmAdicDisplay');
   if(_nkdEdit) _nkdEdit.value=r.notaKmAdicional||'';
   if(_fnaEdit) _fnaEdit.style.display=r.notaKmAdicional?'block':'none';

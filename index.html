@@ -6,7 +6,7 @@
 <script>// Si hay una sesión guardada, se oculta la entrada y la presentación mientras se recupera (ver js/22-recuperar-pantalla.js)
 try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList.add('recuperando'); } catch(e) {}</script>
   <link rel="manifest" href="manifest.json">
-<script src="js/00-manifest.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
+<script src="js/00-manifest.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
   <meta name="theme-color" content="#2d9e5f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   <meta name="apple-mobile-web-app-title" content="Partes IRV-10">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=yes">
 <title>Partes IRV-10</title>
-<link rel="stylesheet" href="css/estilos.css?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera">
+<link rel="stylesheet" href="css/estilos.css?v=build-2026-11-02b-v3-comparar-calculo-y-formulario">
 </head>
 <body>
 <!-- PANTALLA LOGIN -->
@@ -97,6 +97,10 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
     <div class="app-icon" id="iconBackups" style="display:none;" onclick="abrirBackups()">
       <div class="app-icon-img ico-other">&#128190;</div>
       <span class="app-icon-label">Copias de seguridad</span>
+    </div>
+    <div class="app-icon" id="iconComparar" style="display:none;" onclick="abrirComparar()">
+      <div class="app-icon-img ico-other">&#9878;&#65039;</div>
+      <span class="app-icon-label">Comparar c&aacute;lculo</span>
     </div>
     <div class="app-icon" id="iconPapelera" style="display:none;" onclick="abrirPapelera()">
       <div class="app-icon-img ico-other">&#128465;</div>
@@ -641,6 +645,20 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
   <div id="papeleraLista"></div>
 </div>
+<div id="w-comparar" class="win">
+  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
+  <div class="card">
+    <div class="card-title">&#9878;&#65039; Comparar c&aacute;lculo con la app de uso</div>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Esta app calcula por su cuenta cada parte que trae el formulario de la app de uso y lo compara con lo que calcul&oacute; esa app. El resultado de esta app se guarda aparte (partesNueva); no se modifica ning&uacute;n parte. Al abrir esta pantalla ocupa el formulario.</p>
+    <div id="cmpProgreso" style="display:none;font-size:.85rem;color:var(--text2);padding:6px 0;"></div>
+    <div id="cmpResumen"></div>
+    <div class="brow" style="margin-top:10px;">
+      <button class="btn btn-s" onclick="_cmpEjecutar(true)">&#128260; Recalcular todo</button>
+      <button class="btn btn-p" onclick="_cmpCopiarInforme()">&#128203; Copiar informe</button>
+    </div>
+  </div>
+  <div id="cmpLista"></div>
+</div>
 <div id="w-horas" class="win">
   <div class="navrow"><button class="back" id="hBack" onclick="horasAtras()">&#8592; Atr&aacute;s</button><button class="back" id="hInicioBtn" onclick="goTo('w-clientes')" style="display:none;">&#8962; Inicio</button></div>
   <div id="horasMenu">
@@ -764,21 +782,21 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script>var APP_BUILD_ID = 'build-2026-10-30a-v3-tipos-de-trabajo-y-papelera';</script>
-<script src="js/01-base.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/02-clientes.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/03-almacen-agenda.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/04-catalogo-tecnicos.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/05-catalogo-pantallas.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/06-inicio-estadisticas.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/07-generar-parte.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/08-pdf.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/09-certificacion-asignacion.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/10-materiales.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/11-calculos-utilidades.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/12-leer-orden.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/13-editar-parte.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/14-papelera-autorrelleno.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
+<script>var APP_BUILD_ID = 'build-2026-11-02b-v3-comparar-calculo-y-formulario';</script>
+<script src="js/01-base.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/02-clientes.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/03-almacen-agenda.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/04-catalogo-tecnicos.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/05-catalogo-pantallas.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/06-inicio-estadisticas.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/07-generar-parte.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/08-pdf.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/09-certificacion-asignacion.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/10-materiales.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/11-calculos-utilidades.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/12-leer-orden.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/13-editar-parte.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/14-papelera-autorrelleno.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
 
 <!-- DIÁLOGO NOMBRE -->
 <div class="dlg" id="dlgNombre">
@@ -837,19 +855,20 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script src="js/00b-service-worker.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
+<script src="js/00b-service-worker.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
 <!-- Firebase compat — al final para garantizar carga -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="js/15-firebase-inicio.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/16-conexion.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/17-sesion-sincronizacion.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/19-copias-seguridad.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/20-horas-adicionales.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/20b-tareas-pendientes.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
-<script src="js/22-recuperar-pantalla.js?v=build-2026-10-30a-v3-tipos-de-trabajo-y-papelera"></script>
+<script src="js/15-firebase-inicio.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/16-conexion.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/17-sesion-sincronizacion.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/19-copias-seguridad.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/20-horas-adicionales.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/20b-tareas-pendientes.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/23-comparar-calculo.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
+<script src="js/22-recuperar-pantalla.js?v=build-2026-11-02b-v3-comparar-calculo-y-formulario"></script>
 <!-- DIÁLOGO PIN CAMBIO ROL -->
 <div class="dlg" id="dlgCambioRol">
   <div class="dlg-box" style="max-width:320px;">
