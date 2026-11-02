@@ -9,6 +9,7 @@ function _tarYo(){ var n=(window._sesion&&window._sesion.nombre)||''; var t=getT
 function _tarCol(){ return _db.collection('tareasPendientes'); }
 function _tarUltima(d){ var c=d.comentarios||[]; return c.length?c[c.length-1].ts:(d.fechaCreacion||0); }
 function actualizarBadgeTareas(){
+  _badgeIconoPedirRecalculo();
   try{
     var b=$('tareasBadge'); if(!b||!window._sesion||typeof _db==='undefined'||!_db) return;
     var clave=_tarAdmin()?'admin':_tarYo();
@@ -21,6 +22,34 @@ function actualizarBadgeTareas(){
     _conTimeout(q.get(),7000).then(function(s){ poner(s.size); try{ localStorage.setItem('pm_cache_tareas_badge',JSON.stringify({clave:clave,n:s.size})); }catch(e){} }).catch(desdeCopia);
   }catch(e){} // un fallo aquí nunca debe afectar a la pantalla de inicio ni al inicio de sesión, que lo llaman
 }
+// ===== MARCA EN EL ICONO DE LA APP =====
+// Número de cosas que el técnico tiene asignadas y todavía no ha empezado: asignaciones sin su primer parte (vista:false, que se
+// reinicia al reasignar o reabrir) + tareas sin su primera nota (escrita después de la última reasignación). Se muestra en el icono
+// de la app instalada (Badging API) y se recalcula cada vez que la app pinta sus asignaciones. Si el móvil no lo admite, no hace nada.
+function _tareaSinIniciar(d, tec){
+  if(!d || d.estado!=='pendiente') return false;
+  var yo=String(tec||'').toLowerCase(), coms=d.comentarios||[], desde=0;
+  coms.forEach(function(c){ if(/^Reasignada de /.test(c.texto||'') && (c.ts||0)>desde) desde=c.ts; });
+  return !coms.some(function(c){ return String(c.por||'').toLowerCase()===yo && (c.ts||0)>desde && !/^Reasignada de /.test(c.texto||''); });
+}
+function _badgeIconoContar(snapInc, snapTar, tec){
+  var n=0;
+  snapInc.forEach(function(doc){ if(doc.data().vista===false) n++; });
+  snapTar.forEach(function(doc){ if(_tareaSinIniciar(doc.data(), tec)) n++; });
+  return n;
+}
+function _badgeIconoActualizar(n){
+  try{
+    if(!navigator.setAppBadge) return;
+    if(n>0) navigator.setAppBadge(n).catch(function(){}); else navigator.clearAppBadge().catch(function(){});
+  }catch(e){}
+}
+var _badgeIconoTimer=null;
+function _badgeIconoPedirRecalculo(){
+  if(_badgeIconoTimer) return;
+  _badgeIconoTimer=setTimeout(function(){ _badgeIconoTimer=null; try{ renderAsgTecnico(); }catch(e){} }, 600);
+}
+
 function abrirTareas(verRealizadas){
   _tarSel=null; _tarTec=''; _tarSugs=[]; _tarCerradas=verRealizadas===true;
   $('tarCliente').value=''; $('tarComentario').value=''; $('tarMsg').textContent='';
@@ -293,12 +322,15 @@ function _asgTecRender(miNombre, sec, el){
     _db.collection('incidencias').where('tecnicoPrincipal','==',miNombre).where('estado','in',['pendiente','en-ejecucion']).get(),
     _db.collection('incidencias').where('solicitudReabrir.tecnico','==',miNombre).get(),
     // Tareas pendientes que le asignaron (o le comentaron) y aún no ha visto (si esta consulta falla, el resto de avisos sigue igual)
-    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('vistaTecnico','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; })
+    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('vistaTecnico','==',false).get().catch(function(){ return { empty:true, forEach:function(){} }; }),
+    // Tareas pendientes del tecnico (para la marca del icono: cuenta las que aun no tienen su primera nota)
+    _db.collection('tareasPendientes').where('tecnico','==',miNombre).where('estado','==','pendiente').get().catch(function(){ return { empty:true, forEach:function(){} }; })
   ]), 7000).then(function(r){
     var inc = [], rech = [], tar = [];
     r[0].forEach(function(doc){ var d = doc.data(); if (d.vista === true) return; inc.push(Object.assign({ id:doc.id }, d)); }); // ya vista por el técnico
     r[1].forEach(function(doc){ var d = doc.data(); if (!d.solicitudReabrir || !d.solicitudReabrir.rechazada) return; rech.push(Object.assign({ id:doc.id }, d)); }); // aún no resuelta, o ya aceptada
     r[2].forEach(function(doc){ tar.push(Object.assign({ id:doc.id }, doc.data())); });
+    _badgeIconoActualizar(_badgeIconoContar(r[0], r[3], miNombre));
     _asgCacheGuardar(miNombre, inc, rech, tar);
     pintar(inc, rech, tar, false);
   }).catch(desdeCopia);

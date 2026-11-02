@@ -188,11 +188,12 @@ function renderAsgTecnico() {
   var sec = $('asgTecSection'); var el = $('asgTecLista');
   if (!sec || !el) return;
   var esTecnico = window._sesion && window._sesion.rol === 'tecnico';
-  if (!esTecnico || _esTecnicoSinPrincipal()) { sec.style.display = 'none'; return; }
+  if (!esTecnico || _esTecnicoSinPrincipal()) { sec.style.display = 'none'; _badgeIconoActualizar(0); _pushOcultarTarjeta(); return; }
   // Usar el nombre exacto del catálogo para la comparación (case-sensitive en Firestore)
   var miNombre = window._sesion.nombre;
   var _tec = getTecnicos().find(function(t){ return t.nombre.toLowerCase() === miNombre.toLowerCase(); });
   if (_tec) miNombre = _tec.nombre;
+  _pushRefrescar(miNombre);
   _asgTecRender(miNombre, sec, el);
 }
 

@@ -74,3 +74,34 @@ self.addEventListener('fetch', function(e){
     })
   );
 });
+
+// Avisos (notificaciones push). Los manda la funcion "avisos" del servidor cuando se le asigna algo al tecnico (una orden o una tarea),
+// tambien con la app cerrada. El aviso lleva el numero de cosas pendientes: se muestra y se pone en el icono de la app.
+// No hay avisos de "ya no tienes nada": cuando el tecnico abre la app, ella sola recalcula el numero y lo quita.
+self.addEventListener('push', function(e){
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch(x) { d = {}; }
+  var n = +d.n || 0;
+  var tareas = [self.registration.showNotification(d.titulo || 'IRV-10', {
+    body: d.texto || 'Tienes asignaciones o tareas pendientes.',
+    tag: 'pendientes', renotify: true,
+    icon: './icon.png', badge: './icon.png',
+    data: {n: n}
+  })];
+  if(self.navigator && self.navigator.setAppBadge){
+    tareas.push((n > 0 ? self.navigator.setAppBadge(n) : self.navigator.setAppBadge()).catch(function(){}));
+  }
+  e.waitUntil(Promise.all(tareas));
+});
+
+self.addEventListener('notificationclick', function(e){
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(lista){
+      for(var i = 0; i < lista.length; i++){
+        if('focus' in lista[i]) return lista[i].focus();
+      }
+      return self.clients.openWindow('./');
+    })
+  );
+});
