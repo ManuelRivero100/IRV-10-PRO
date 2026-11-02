@@ -188,12 +188,13 @@ function renderAsgTecnico() {
   var sec = $('asgTecSection'); var el = $('asgTecLista');
   if (!sec || !el) return;
   var esTecnico = window._sesion && window._sesion.rol === 'tecnico';
-  if (!esTecnico || _esTecnicoSinPrincipal()) { sec.style.display = 'none'; _badgeIconoActualizar(0); _pushOcultarTarjeta(); return; }
+  // Al arrancar, esta función se llama antes de que se carguen 20b (marca del icono) y 24 (avisos): por eso se comprueba que existan.
+  if (!esTecnico || _esTecnicoSinPrincipal()) { sec.style.display = 'none'; if (typeof _badgeIconoActualizar === 'function') _badgeIconoActualizar(0); if (typeof _pushOcultarTarjeta === 'function') _pushOcultarTarjeta(); return; }
   // Usar el nombre exacto del catálogo para la comparación (case-sensitive en Firestore)
   var miNombre = window._sesion.nombre;
   var _tec = getTecnicos().find(function(t){ return t.nombre.toLowerCase() === miNombre.toLowerCase(); });
   if (_tec) miNombre = _tec.nombre;
-  _pushRefrescar(miNombre);
+  if (typeof _pushRefrescar === 'function') _pushRefrescar(miNombre);
   _asgTecRender(miNombre, sec, el);
 }
 
