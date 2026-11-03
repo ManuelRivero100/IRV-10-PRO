@@ -55,7 +55,7 @@ function _pushRefrescar(nombre){
   }
   navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
     if(Notification.permission === 'granted' && sub){
-      _pushTarjeta('');
+      _pushTarjeta(_pushHtmlActivo());
       _pushGuardar(sub, _pushNombre).catch(_fallo('_pushGuardar dispositivosPush.set'));
       _pushCerrarAvisos();
       return;
@@ -63,6 +63,27 @@ function _pushRefrescar(nombre){
     _pushTarjeta('<p style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Activa los avisos para que te llegue una notificación, y un número en el icono de la app, cuando te asignen una orden o una tarea, aunque la app esté cerrada.</p>'
       + '<button class="btn btn-p btn-full" onclick="_pushActivar()">&#128276; Activar avisos</button>');
   }).catch(function(){});
+}
+// Tarjeta con los avisos ya activados: dos botones de prueba que NO pasan por el servidor, para separar "este móvil no muestra
+// notificaciones" de "el aviso no llega". Debajo se escribe el resultado.
+function _pushHtmlActivo(){
+  return '<p style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Avisos activados en este móvil.</p>'
+    + '<div class="brow"><button class="btn btn-s" onclick="_pushProbar()">Probar aviso</button>'
+    + '<button class="btn btn-s" onclick="_pushProbarNumero()">Probar número en el icono</button></div>'
+    + '<div id="pushDiag" style="font-size:.75rem;color:var(--text3);margin-top:8px;"></div>';
+}
+function _pushDiag(txt){ var d = $('pushDiag'); if(d) d.textContent = txt; }
+function _pushProbar(){
+  navigator.serviceWorker.ready.then(function(reg){
+    return reg.showNotification('Prueba de aviso', {body: 'Si ves esto, las notificaciones de este móvil funcionan.', tag: 'prueba', icon: './icon.png', badge: './icon.png'}).then(function(){
+      _pushDiag('Aviso pedido al móvil · permiso: ' + Notification.permission + ' · versión de la app: ' + ((reg.active && reg.active.scriptURL.split('?v=')[1]) || '?'));
+    });
+  }).catch(function(e){ _pushDiag('No se pudo mostrar el aviso: ' + (e && e.message || e)); });
+}
+function _pushProbarNumero(){
+  if(!navigator.setAppBadge){ _pushDiag('Este móvil no admite el número en el icono (no existe setAppBadge).'); return; }
+  navigator.setAppBadge(7).then(function(){ _pushDiag('Número 7 puesto en el icono: mira el icono con la app cerrada.'); })
+    .catch(function(e){ _pushDiag('No se pudo poner el número: ' + (e && e.message || e)); });
 }
 // Solo se llama desde el botón: el móvil exige que el permiso se pida tras un toque del usuario.
 function _pushActivar(){
@@ -72,7 +93,7 @@ function _pushActivar(){
     return navigator.serviceWorker.ready.then(function(reg){
       return reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: _pushClaveABytes(_PUSH_CLAVE_PUBLICA)});
     }).then(function(sub){ return _pushGuardar(sub, _pushNombre); }).then(function(){
-      _toast('Avisos activados en este móvil.'); _pushTarjeta('');
+      _toast('Avisos activados en este móvil.'); _pushTarjeta(_pushHtmlActivo());
     });
   }).catch(function(){ _toast('No se pudieron activar los avisos. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
 }
