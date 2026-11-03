@@ -75,7 +75,7 @@ function seleccionarRefAgenda(clienteId,centro){
 
 function seleccionarRefNoMerc(idx){
   var r=getH()[idx]; if(!r) return;
-  _rellenarFormulario({ tienda:r.tienda, dir:r.dir, tel:r.tel, km:r.km, tr:r.tr });
+  _rellenarFormulario(_datosCentroDeAgenda({ tienda:r.tienda, dir:r.dir, tel:r.tel, km:r.km, tr:r.tr }, r.clienteId, r.centro));
   // Si la orden sigue en ejecución, rellenar el número de pedido
   if((r.estado||'terminado')==='en-ejecucion' && r.pedido){
     if(_pedidoNoMerc!==r.pedido){ _pedidoNoMerc=r.pedido; $('pedidoGenDisplay').textContent=r.pedido; }

@@ -215,6 +215,13 @@ function _autoNumParte0000(pedido, centro){
     }).catch(function(e){ console.warn('Nº parte 0000: no se pudo consultar Firestore', e); });
   }
 }
+// Nombre, dirección y teléfono de un centro que ya está en la Agenda: manda la Agenda (datos verificados), no lo que alguien
+// escribió a mano en un parte anterior. Si el centro no está en la Agenda, o le falta algún dato, queda lo que traían los datos.
+function _datosCentroDeAgenda(datos, clienteId, centro){
+  var ag=centro?agendaBuscar(clienteId||'mercadona', centro):null;
+  if(ag){ if(ag.tienda) datos.tienda=ag.tienda; if(ag.dir) datos.dir=ag.dir; if(ag.tel) datos.tel=ag.tel; }
+  return datos;
+}
 function rellenarDatos(idx, soloOrdenActiva){
   var h=getH(); var r=h[idx]; if(!r) return;
   // Descripción de la incidencia: tomar la del último parte de esta misma orden
@@ -222,12 +229,12 @@ function rellenarDatos(idx, soloOrdenActiva){
   var mismaOrden=h.filter(function(x){ return x.pedido===r.pedido && x.centro===r.centro && (x.clienteId||'mercadona')===(r.clienteId||'mercadona'); });
   mismaOrden.sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
   var ultimo=mismaOrden[mismaOrden.length-1]||r;
-  _rellenarFormulario({
+  _rellenarFormulario(_datosCentroDeAgenda({
     centro:r.centro, tienda:r.tienda, dir:r.dir, tel:r.tel, km:r.km, tr:r.tr,
     job: soloOrdenActiva?r.job:null,
     catJob: soloOrdenActiva?r.catJob:null,
     descripcion: ultimo.descIncidencia||ultimo.averiaReportada||''
-  });
+  }, r.clienteId, r.centro));
   if(soloOrdenActiva) _autoNumParte0000(r.pedido, r.centro);
 }
 function rellenarDesdeAgenda(clienteId,centro){
