@@ -676,7 +676,9 @@ function respCorregir(actualizar){
       if(h[i].centro===r.centro&&h[i].clienteId===r.clienteId){ anterior=h[i]; break; }
     }
     if(anterior){
-      r.tienda=anterior.tienda; r.dir=anterior.dir; r.tel=anterior.tel;
+      // Si el centro está en la Agenda, "revertir" vuelve a los datos de la Agenda y no a lo que tuviera escrito el parte anterior.
+      var _rev=_datosCentroDeAgenda({ tienda:anterior.tienda, dir:anterior.dir, tel:anterior.tel }, r.clienteId, r.centro);
+      r.tienda=_rev.tienda; r.dir=_rev.dir; r.tel=_rev.tel;
     }
   }
   _finalizarGuardado(window._corregirEstado);
