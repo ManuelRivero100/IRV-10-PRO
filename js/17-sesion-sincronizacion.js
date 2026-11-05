@@ -886,20 +886,56 @@ function guardarAsignacion() {
     }).catch(function(){ showMsg('asgMsg','Error al guardar.','error'); });
   }
 
-  // Verificar si ya existe una incidencia pendiente/en-ejecución con el mismo nº de orden
+  // Reapertura desde Asignar: se actualiza la MISMA orden (conserva sus datos, fechas y partes) en vez de reescribirla encima.
+  function _reabrir(c){
+    var desc=String(c.datos.descripcion||'').trim(), nueva=$('asgDescripcion').value.trim();
+    var upd=Object.assign({ estado:'pendiente', vista:false, tecnicoPrincipal:_asgTec, job:_asgJob, descripcion: desc ? desc+'\n\nReapertura: '+nueva : nueva },
+      _marcaModificacion('Reabierta desde Asignar'));
+    c.ref.update(upd).then(function(){
+      showMsg('asgMsg','✓ Orden reabierta y asignada.','success');
+      _asgLimpiarFormulario();
+      renderAsgLista();
+    }).catch(function(){ showMsg('asgMsg','Error al guardar.','error'); });
+  }
+
+  // Verificar si ya existe una incidencia con el mismo nº de orden: abierta → se avisa de su estado y no se guarda nada; cerrada → se
+  // pregunta si se reabre o se descarta la asignación. Nunca se sobrescribe en silencio (se perdería su descripción, sus fechas y su cierre).
   if (pedido) {
     _db.collection('incidencias').where('clienteId','==',curCliente.id).where('pedido','==',pedido).get().then(function(snap){
-      var existente=null, refExistenteTerminada=null;
-      snap.forEach(function(doc){ var d=doc.data(); if(d.estado!=='terminado') existente=d; else refExistenteTerminada=doc.ref; });
+      var existente=null, cerrada=null;
+      snap.forEach(function(doc){ var d=doc.data(); if(d.estado!=='terminado') existente=d; else cerrada={ref:doc.ref, datos:d}; });
       if (existente) {
-        showMsg('asgMsg','⚠ Esta orden ya está asignada a '+existente.tecnicoPrincipal+'.','error');
+        showMsg('asgMsg','⚠ Esta orden ya existe: está '+(existente.estado==='en-ejecucion'?'en ejecución':'pendiente')+' y asignada a '+existente.tecnicoPrincipal+'. No se ha guardado nada.','error');
+      } else if (cerrada) {
+        _asgPreguntarReabrir(cerrada, _reabrir);
       } else {
-        _guardar(refExistenteTerminada);
+        _guardar(null);
       }
-    }).catch(function(){ _guardar(null); });
+    }).catch(function(){ showMsg('asgMsg','No se pudo comprobar si la orden ya existe. Comprueba tu conexión e inténtalo de nuevo.','error'); });
   } else {
     _guardar(null);
   }
+}
+
+// Diálogo "Orden ya existente" (orden cerrada): reabrirla con esta asignación o descartar la asignación.
+var _asgReabrirPend = null;
+function _asgPreguntarReabrir(cerrada, reabrir){
+  _asgReabrirPend = function(){ reabrir(cerrada); };
+  $('dlgAsgExisteNum').textContent = cerrada.datos.pedido || '';
+  $('dlgAsgExisteCentro').textContent = cerrada.datos.tienda || cerrada.datos.centro || '';
+  $('dlgAsgExiste').classList.add('show');
+}
+function respAsgExiste(reabrir){
+  $('dlgAsgExiste').classList.remove('show');
+  var f = _asgReabrirPend; _asgReabrirPend = null;
+  if (reabrir) { if (f) f(); return; }
+  _asgLimpiarFormulario();
+  showMsg('asgMsg','Asignación descartada. No se ha guardado nada.','success');
+}
+function _asgLimpiarFormulario(){
+  $('asgPedido').value=''; $('asgCentro').value=''; $('asgTienda').value=''; $('asgDir').value=''; $('asgTel').value=''; $('asgKm').value=''; $('asgTr').value=''; $('asgDescripcion').value='';
+  _asgJob=''; _asgTec='';
+  document.querySelectorAll('#asgJobTgl button, #asgTecTgl button').forEach(function(b){b.classList.remove('active');});
 }
 
 // Técnicos a los que se puede asignar una incidencia: activos, con PIN y que llenan partes. Quien no tiene "Llenar parte" marcado
