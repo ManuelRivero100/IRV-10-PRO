@@ -566,10 +566,11 @@ function _horasImporteTxt(cent, sinTab, dias){
     +(sinTab ? ' <span style="font-weight:600;color:var(--amber);">· '+sinTab+(sinTab===1?' día':' días')+' sin tabulador</span>' : '')+'</div>';
 }
 function _horasAgregar(regs, todo){
-  var a={tec:0, partes:0, exceso:0, dietas:0, cent:0, sinTab:0, dias:regs.length};
+  var a={tec:0, partes:0, exceso:0, dietas:0, cent:0, sinTab:0, dias:regs.length, desglose:{Normal:0, Extra:0, Nocturna:0, Festiva:0}};
   regs.forEach(function(r){
     var s=_horasDiaStats(r, todo), imp=_horasImporteDia(r);
     a.tec+=r.adicionalesMin; a.partes+=s.respaldado; a.exceso+=s.exceso;
+    Object.keys(a.desglose).forEach(function(k){ a.desglose[k]+=(r.desglose && r.desglose[k]) || 0; }); // reparto por tipo, igual que ve el técnico
     if(r._dieta) a.dietas++;
     if(imp.tab) a.cent+=imp.cent; else a.sinTab++;
   });
@@ -589,7 +590,8 @@ function _horasFilaEq(c, titulo, sub, extra, onclick){
 }
 function _horasResumenEq(a){
   var sub='Técnico '+horasFmt(a.tec)+' · respaldado por partes '+horasFmt(a.partes);
-  var extra='<div style="font-size:.8rem;margin-top:2px;color:'+(a.exceso>0?HORAS_COLORES[a.color]:'var(--text2)')+';">'
+  var extra='<div style="font-size:.8rem;margin-top:2px;color:var(--text2);">'+horasDesgloseTxt(a.desglose)+'</div>'
+    +'<div style="font-size:.8rem;margin-top:2px;color:'+(a.exceso>0?HORAS_COLORES[a.color]:'var(--text2)')+';">'
     +(a.exceso>0 ? 'Sin parte que lo respalde: '+horasFmt(a.exceso)+' ('+_horasPct(a.exceso, a.tec)+'%)' : 'Todo respaldado por los partes')+'</div>'
     +(a.dietas ? '<div style="font-size:.8rem;color:var(--green);font-weight:600;margin-top:2px;">'+a.dietas+(a.dietas===1?' dieta':' dietas')+'</div>' : '')
     +_horasImporteTxt(a.cent, a.sinTab, a.dias);
@@ -712,7 +714,8 @@ function horasRenderEquipo(){
             var dow=new Date(r.fecha+'T12:00:00').getDay();
             var sub='Técnico '+horasFmt(r.adicionalesMin)+' · respaldado por partes '+horasFmt(st.respaldado);
             var imp=_horasImporteDia(r);
-            var extra='<div style="font-size:.8rem;margin-top:2px;white-space:pre-line;">'+escHtml(r.lugar||'')+'</div>'
+            var extra='<div style="font-size:.8rem;margin-top:2px;color:var(--text2);">'+horasDesgloseTxt(r.desglose||{})+'</div>'
+              +'<div style="font-size:.8rem;margin-top:2px;white-space:pre-line;">'+escHtml(r.lugar||'')+'</div>'
               +(st.exceso>0 && r.adicionalesMin>0 ? '<div style="font-size:.8rem;margin-top:2px;color:'+HORAS_COLORES[c]+';">Sin parte que lo respalde: '+horasFmt(st.exceso)+' ('+_horasPct(st.exceso, r.adicionalesMin)+'%) · '+_horasHuecosTxt(st.huecos)+'</div>' : '')
               +_horasImporteTxt(imp.cent, imp.tab ? 0 : 1, 1);
             h+=_horasFilaEq(c, HORAS_DIAS[dow]+' '+_horasDiaDe(r)+' '+mc+_horasEtiquetaDieta(r._dieta), sub, extra, "horasEqDia('"+r.fecha+"')");
