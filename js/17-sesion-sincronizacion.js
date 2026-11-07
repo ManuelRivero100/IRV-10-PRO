@@ -430,6 +430,37 @@ function _iniciarActualizacionPeriodica(){
     _comprobarVersionNueva();
   }, 15000); // cada 15 segundos
 
+  // Aviso de "Sin conexión" del administrador sin esperar al ciclo de 1 minuto. Dos vigilantes, cero lecturas de Firestore:
+  //  1) al instante, si el móvil avisa de que perdió la red ('offline');
+  //  2) cada 4 s, un ping mínimo a un servidor de Google (otro origen y no-cors: el service worker no lo contesta desde la caché).
+  //     Hacen falta 2 fallos seguidos para avisar, así una red lenta no da falsas alarmas (aviso a los ~8-10 s con wifi sin internet).
+  // Solo actúa con rol administrador y la app visible; al pasar a técnico (botón del diálogo) deja de actuar solo.
+  var _pingFallos = 0, _pingEnCurso = false;
+  function _avisoSinConexionAdmin(){
+    var s = window._sesion;
+    if(!s || s.rol !== 'admin') return;
+    var dlg = document.getElementById('dlgSinConexionAdmin');
+    if(dlg) dlg.classList.add('show');
+  }
+  function _vigilarConexionAdmin(){
+    var s = window._sesion;
+    if(!s || s.rol !== 'admin' || document.visibilityState !== 'visible' || _pingEnCurso) return;
+    if(navigator.onLine === false){ _avisoSinConexionAdmin(); return; }
+    _pingEnCurso = true;
+    var terminado = false;
+    var temporizador = setTimeout(function(){ fin(false); }, 3000);
+    function fin(ok){
+      if(terminado) return;
+      terminado = true; _pingEnCurso = false; clearTimeout(temporizador);
+      if(ok) _pingFallos = 0;
+      else if(++_pingFallos >= 2) _avisoSinConexionAdmin();
+    }
+    fetch('https://www.gstatic.com/generate_204?_=' + Date.now(), {mode:'no-cors', cache:'no-store'})
+      .then(function(){ fin(true); }, function(){ fin(false); });
+  }
+  window.addEventListener('offline', _avisoSinConexionAdmin);
+  setInterval(_vigilarConexionAdmin, 4000);
+
   // Sincronización completa — todo lo que la app sincroniza al entrar (clientes, técnicos,
   // catálogo, agenda, registro global, partes, estados de incidencias) se repite aquí
   // también, para que nada se quede desactualizado mientras la app sigue abierta.

@@ -61,6 +61,10 @@ self.addEventListener('fetch', function(e){
   // Servicios de otros sitios (Firebase, PDF...): los gestiona el navegador.
   if(url.origin !== self.location.origin) return;
 
+  // La comprobación de versión de la app (?_cb=...) va SIEMPRE a la red y no se guarda: cada una lleva un número distinto, así que
+  // guardarla solo llenaba la caché del móvil (unos 15 MB por hora con la app abierta) y nunca se volvía a usar.
+  if(url.search.indexOf('_cb=') >= 0){ e.respondWith(fetch(req)); return; }
+
   // Archivos propios (js, css, iconos): los de la version, guardados. Llevan ?v=<version>, asi que nunca quedan viejos.
   e.respondWith(
     caches.match(req).then(function(r){
