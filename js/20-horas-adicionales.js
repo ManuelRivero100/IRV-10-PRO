@@ -488,9 +488,56 @@ function _horasSegunPartes(reg, todo){
   }
   return {partes:ps, rol:rol, total:total, contado:cont, adic:adic, ini:ini, fin:fin};
 }
+// Huecos seguidos de este tamaño (min) o menos, entre lo que registra el técnico y lo que cubren los partes, no se marcan: los partes se redondean a 15 min.
+var HORAS_MARGEN_MIN=15;
+// Franjas del día que son horas adicionales, las mismas que reparte horasCalcular: de lunes a viernes, las horas fuera de 8:00-16:00 en orden
+// cronológico hasta completar las adicionales; sábado, domingo y festivo, todo el horario.
+function _horasVentanasAdic(r){
+  var td=r.tipoDia||'normal', ini=tm(r.inicio), fi=tm(r.fin), cruza=fi<ini, v=[];
+  if(td!=='normal'){ v.push([ini, cruza?1440:fi]); if(cruza) v.push([0, fi]); return v; }
+  var finDia=cruza?1440:fi, tr=[];
+  if(ini<480) tr.push([ini, Math.min(finDia,480)]);
+  if(finDia>960) tr.push([Math.max(ini,960), finDia]);
+  if(cruza) tr.push([0, fi]);
+  var resto=r.adicionalesMin||0;
+  tr.forEach(function(t){
+    if(resto<=0) return;
+    var tomar=Math.min(t[1]-t[0], resto);
+    if(tomar>0){ v.push([t[0], t[0]+tomar]); resto-=tomar; }
+  });
+  return v;
+}
+// Franjas que cubren los partes del día (con el viaje de ida y de vuelta, como _horasRangoParte).
+function _horasFranjasPartes(ps){
+  var iv=[];
+  ps.forEach(function(p){
+    var t=_horasRangoParte(p).split(' – '), a=tm(t[0]), b=tm(t[1]);
+    if(b<a){ iv.push([a,1440]); iv.push([0,b]); } else iv.push([a,b]);
+  });
+  return iv;
+}
+// Minutos de horas adicionales que ningún parte cubre, en huecos seguidos; los huecos de HORAS_MARGEN_MIN o menos se ignoran.
+function _horasSinParte(r, ps){
+  var cub=[], i;
+  for(i=0;i<1440;i++) cub.push(false);
+  _horasFranjasPartes(ps).forEach(function(iv){ for(var x=iv[0]; x<iv[1]; x++) cub[x]=true; });
+  var huecos=[];
+  _horasVentanasAdic(r).forEach(function(w){
+    var ini=null;
+    for(var x=w[0]; x<=w[1]; x++){
+      var sin = x<w[1] && !cub[x];
+      if(sin && ini===null) ini=x;
+      if(!sin && ini!==null){ if(x-ini>HORAS_MARGEN_MIN) huecos.push({desde:ini, hasta:x}); ini=null; }
+    }
+  });
+  var min=0; huecos.forEach(function(h){ min+=h.hasta-h.desde; });
+  return {min:min, huecos:huecos};
+}
+function _horasHuecosTxt(huecos){ return huecos.map(function(h){ return fT(h.desde)+'–'+fT(h.hasta); }).join(', '); }
+// "exceso" = minutos de horas adicionales sin parte que los respalde; "respaldado" = los que sí están cubiertos por los partes.
 function _horasDiaStats(r, todo){
-  var seg=_horasSegunPartes(r, todo);
-  return {seg:seg, exceso:Math.max(0, r.adicionalesMin-seg.adic)};
+  var seg=_horasSegunPartes(r, todo), sp=_horasSinParte(r, seg.partes);
+  return {seg:seg, exceso:sp.min, huecos:sp.huecos, respaldado:Math.max(0, (r.adicionalesMin||0)-sp.min)};
 }
 // Importe de un día sobre lo que registra el técnico, con el tabulador que el técnico tenía ESE día y los precios
 // vigentes ESE día. Cada línea se redondea al céntimo y el total es la suma de las líneas. Sin tabulador: tab=null.
@@ -522,7 +569,7 @@ function _horasAgregar(regs, todo){
   var a={tec:0, partes:0, exceso:0, dietas:0, cent:0, sinTab:0, dias:regs.length};
   regs.forEach(function(r){
     var s=_horasDiaStats(r, todo), imp=_horasImporteDia(r);
-    a.tec+=r.adicionalesMin; a.partes+=s.seg.adic; a.exceso+=s.exceso;
+    a.tec+=r.adicionalesMin; a.partes+=s.respaldado; a.exceso+=s.exceso;
     if(r._dieta) a.dietas++;
     if(imp.tab) a.cent+=imp.cent; else a.sinTab++;
   });
@@ -541,9 +588,9 @@ function _horasFilaEq(c, titulo, sub, extra, onclick){
     +(onclick?'<span style="color:var(--text2);">&rsaquo;</span>':'')+'</div>';
 }
 function _horasResumenEq(a){
-  var sub='Técnico '+horasFmt(a.tec)+' · según partes '+horasFmt(a.partes);
+  var sub='Técnico '+horasFmt(a.tec)+' · respaldado por partes '+horasFmt(a.partes);
   var extra='<div style="font-size:.8rem;margin-top:2px;color:'+(a.exceso>0?HORAS_COLORES[a.color]:'var(--text2)')+';">'
-    +(a.exceso>0 ? 'Registra de más: '+horasFmt(a.exceso)+' ('+_horasPct(a.exceso, a.tec)+'%)' : 'Sin exceso sobre los partes')+'</div>'
+    +(a.exceso>0 ? 'Sin parte que lo respalde: '+horasFmt(a.exceso)+' ('+_horasPct(a.exceso, a.tec)+'%)' : 'Todo respaldado por los partes')+'</div>'
     +(a.dietas ? '<div style="font-size:.8rem;color:var(--green);font-weight:600;margin-top:2px;">'+a.dietas+(a.dietas===1?' dieta':' dietas')+'</div>' : '')
     +_horasImporteTxt(a.cent, a.sinTab, a.dias);
   return {sub:sub, extra:extra};
@@ -566,8 +613,8 @@ function horasVerParte(i){
 }
 
 function _horasEqDiaHTML(r, todo){
-  var s=_horasSegunPartes(r, todo);
-  var exceso=Math.max(0, r.adicionalesMin-s.adic);
+  var st=_horasDiaStats(r, todo), s=st.seg;
+  var exceso=st.exceso;
   var c=r.adicionalesMin>0 ? _horasColor(exceso, r.adicionalesMin) : 'n';
   _horasPartesVista=s.partes;
   var caja=function(inner){ return '<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:8px;font-size:.88rem;">'+inner+'</div>'; };
@@ -598,12 +645,12 @@ function _horasEqDiaHTML(r, todo){
   h+=rotulo('Según los partes');
   h+=caja(kv('Total de los partes', horasFmt(s.total))
     +(s.rol!=='normal' ? kv('Cuenta (viaje con pernocta)', horasFmt(s.contado)) : '')
-    +kv('Adicionales según partes', horasFmt(s.adic)+((r.tipoDia||'normal')==='normal' ? '' : ' (todo)'))
+    +kv('Adicionales respaldadas por partes', horasFmt(st.respaldado))
     +(s.ini ? kv('Horario estimado', s.ini+' – '+s.fin) : ''));
   var txt;
   if(r.adicionalesMin<=0) txt='Sin horas adicionales registradas este día.';
-  else if(exceso>0) txt='El técnico registra '+horasFmt(r.adicionalesMin)+' y los partes dicen '+horasFmt(s.adic)+': registra de más '+horasFmt(exceso)+' ('+_horasPct(exceso, r.adicionalesMin)+'%).';
-  else txt='El técnico registra '+horasFmt(r.adicionalesMin)+' y los partes dicen '+horasFmt(s.adic)+': sin alarma.';
+  else if(exceso>0) txt='El técnico registra '+horasFmt(r.adicionalesMin)+' y los partes respaldan '+horasFmt(st.respaldado)+'. Sin parte que lo respalde: '+horasFmt(exceso)+' ('+_horasPct(exceso, r.adicionalesMin)+'%) · '+_horasHuecosTxt(st.huecos)+'.';
+  else txt='El técnico registra '+horasFmt(r.adicionalesMin)+' y los partes cubren todo ese tiempo: sin alarma.';
   h+='<div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1.5px solid '+HORAS_COLORES[c]+';border-radius:var(--r-sm);padding:10px 12px;font-size:.88rem;">'+_horasPunto(c)+'<span>'+txt+'</span></div>';
   return h;
 }
@@ -663,10 +710,10 @@ function horasRenderEquipo(){
             var st=_horasDiaStats(r, todo);
             var c=r.adicionalesMin>0 ? _horasColor(st.exceso, r.adicionalesMin) : 'n';
             var dow=new Date(r.fecha+'T12:00:00').getDay();
-            var sub='Técnico '+horasFmt(r.adicionalesMin)+' · según partes '+horasFmt(st.seg.adic);
+            var sub='Técnico '+horasFmt(r.adicionalesMin)+' · respaldado por partes '+horasFmt(st.respaldado);
             var imp=_horasImporteDia(r);
             var extra='<div style="font-size:.8rem;margin-top:2px;white-space:pre-line;">'+escHtml(r.lugar||'')+'</div>'
-              +(st.exceso>0 && r.adicionalesMin>0 ? '<div style="font-size:.8rem;margin-top:2px;color:'+HORAS_COLORES[c]+';">Registra de más: '+horasFmt(st.exceso)+' ('+_horasPct(st.exceso, r.adicionalesMin)+'%)</div>' : '')
+              +(st.exceso>0 && r.adicionalesMin>0 ? '<div style="font-size:.8rem;margin-top:2px;color:'+HORAS_COLORES[c]+';">Sin parte que lo respalde: '+horasFmt(st.exceso)+' ('+_horasPct(st.exceso, r.adicionalesMin)+'%) · '+_horasHuecosTxt(st.huecos)+'</div>' : '')
               +_horasImporteTxt(imp.cent, imp.tab ? 0 : 1, 1);
             h+=_horasFilaEq(c, HORAS_DIAS[dow]+' '+_horasDiaDe(r)+' '+mc+_horasEtiquetaDieta(r._dieta), sub, extra, "horasEqDia('"+r.fecha+"')");
           });
