@@ -610,7 +610,8 @@ function _capturarEntradaFormulario(esNocturno, previos){
     enlaceAuto:aeData?{kmDif:aeData.kmDif||0, trDif:aeData.trDif||0}:null,
     previos:(previos||[]).map(function(x){
       return {clienteId:x.clienteId||'mercadona', pedido:x.pedido||'', centro:x.centro||'', arr:x.arr||'', lea:x.lea||'',
-        totalMin:x.totalMin||0, dieta:!!x.dieta, linkType:x.linkType||'No', horaEnlace:x.horaEnlace||0, kmDif:x.kmDif||0, trDif:x.trDif||0};
+        totalMin:x.totalMin||0, dieta:!!x.dieta, linkType:x.linkType||'No', horaEnlace:x.horaEnlace||0, kmDif:x.kmDif||0, trDif:x.trDif||0,
+        tienda:x.tienda||'', enlaceDestinoCentro:x.enlaceDestinoCentro||'', enlaceDestino:x.enlaceDestino||''};   // el enlace automático y su nota de texto dependen de estos tres
     }),
     cierre:null
   };

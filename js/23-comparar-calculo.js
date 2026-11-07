@@ -8,8 +8,8 @@
 // guarda parejas de tiendas y no cambia de pantalla. Ocupa el formulario, por eso solo se lanza
 // desde su propia pantalla (admin).
 
-var _CMP_CAMPOS=['dieta','totalMin','fin','horaEnlace','tipoDia','linkType','km','tr','kmDif','trDif','trS'];
-var _CMP_ROTULOS={dieta:'Dieta',totalMin:'Minutos totales',fin:'Fin',horaEnlace:'Hora de enlace',tipoDia:'Tipo de día',linkType:'Enlace',km:'Km',tr:'Desplazamiento',kmDif:'Km de diferencia',trDif:'Despl. de diferencia',trS:'Despl. de salida'};
+var _CMP_CAMPOS=['dieta','totalMin','fin','horaEnlace','tipoDia','linkType','km','tr','kmDif','trDif','trS','tienda','dir','tel'];
+var _CMP_ROTULOS={dieta:'Dieta',totalMin:'Minutos totales',fin:'Fin',horaEnlace:'Hora de enlace',tipoDia:'Tipo de día',linkType:'Enlace',km:'Km',tr:'Desplazamiento',kmDif:'Km de diferencia',trDif:'Despl. de diferencia',trS:'Despl. de salida',tienda:'Nombre de la tienda',dir:'Dirección',tel:'Teléfono'};
 var _cmpEnCurso=false;
 var _cmpFilas=[];
 
@@ -17,9 +17,22 @@ var _cmpFilas=[];
 // automático dependen de ellos), con la forma que espera generarCore.
 function _cmpHistorialDe(en){
   var tec=(en.nombres&&en.nombres[0])||'';
+  var reales=(typeof getH==='function') ? getH() : [];
   return (en.previos||[]).map(function(x){
-    return {fecha:en.fecha, tecnicos:[tec], clienteId:x.clienteId, pedido:x.pedido, centro:x.centro, arr:x.arr, lea:x.lea,
-      totalMin:x.totalMin, dieta:x.dieta, linkType:x.linkType, horaEnlace:x.horaEnlace, kmDif:x.kmDif, trDif:x.trDif};
+    var o={fecha:en.fecha, tecnicos:[tec], clienteId:x.clienteId, pedido:x.pedido, centro:x.centro, arr:x.arr, lea:x.lea,
+      totalMin:x.totalMin, dieta:x.dieta, linkType:x.linkType, horaEnlace:x.horaEnlace, kmDif:x.kmDif, trDif:x.trDif,
+      tienda:x.tienda, enlaceDestinoCentro:x.enlaceDestinoCentro, enlaceDestino:x.enlaceDestino};
+    // Partes guardados antes de que el formulario recordara estos tres datos: se toman del parte real de ese día (mismo pedido, centro y técnico).
+    if(o.tienda===undefined || o.enlaceDestinoCentro===undefined){
+      var p=reales.find(function(y){ return y.fecha===en.fecha && y.pedido===x.pedido && y.centro===x.centro && (y.clienteId||'mercadona')===(x.clienteId||'mercadona')
+        && y.tecnicos && String(y.tecnicos[0]||'').toLowerCase()===String(tec).toLowerCase(); });
+      if(p){
+        if(o.tienda===undefined) o.tienda=p.tienda;
+        if(o.enlaceDestinoCentro===undefined) o.enlaceDestinoCentro=p.enlaceDestinoCentro;
+        if(o.enlaceDestino===undefined) o.enlaceDestino=p.enlaceDestino;
+      }
+    }
+    return o;
   });
 }
 
@@ -83,8 +96,12 @@ function _cmpDiferencias(parte, r){
     var a=parte[k], b=r[k];
     if(k==='dieta'){ a=!!a; b=!!b; }
     if(a===undefined&&(b===0||b===null||b===undefined||b==='')) return;
-    if(String(a)!==String(b)) d.push({campo:_CMP_ROTULOS[k]||k, uso:_cmpValor(a), nueva:_cmpValor(b)});
+    if(String(a).trim()!==String(b).trim()) d.push({campo:_CMP_ROTULOS[k]||k, uso:_cmpValor(a), nueva:_cmpValor(b)});
   });
+  // Nota de trayectoria del texto del parte ("Desplazamiento Desde X…"): depende del enlace y de las tiendas.
+  var nota=function(h){ var m=String(h||'').match(/<div class="nota-trayectoria"[^>]*>([\s\S]*?)<\/div>/); return m ? m[1].replace(/<[^>]*>/g,'').replace(/&#\d+;|&[a-z]+;/gi,' ').replace(/\s+/g,' ').trim() : ''; };
+  var na=nota(parte.detalle), nb=nota(r.detalle);
+  if(na!==nb) d.push({campo:'Nota de trayectoria', uso:na||null, nueva:nb||null});
   var norm=function(c){ var o={}; (c||[]).forEach(function(x){ o[x.lab]=Math.round((+x.v||0)*100)/100; }); return o; };
   var A=norm(parte.codigos), B=norm(r.codigos);
   Object.keys(Object.assign({},A,B)).forEach(function(l){
