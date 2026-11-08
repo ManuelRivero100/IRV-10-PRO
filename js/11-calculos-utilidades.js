@@ -196,10 +196,10 @@ function _revisarSolapeTrasGuardarDisp(parte, razon){
           {id:yo, pedido:parte.pedido||'', centro:parte.centro||'', desde:parte.arr||'', hasta:parte.lea||'', tecnicos:parte.tecnicos||[]},
           {id:d.id, pedido:o.pedido||'', centro:o.centro||'', desde:o.arr||'', hasta:o.lea||'', tecnicos:o.tecnicos||[]}
         ]
-      }).catch(function(){});
+      }).catch(_fallo('_revisarSolapeTrasGuardarDisp'));
       if(window._sesion.rol==='tecnico') _avisoDisp('Tu parte coincide en horas con otro ('+comunes.join(', ')+'). El administrador lo revisará.');
     });
-  }).catch(function(){});
+  }).catch(_fallo('_revisarSolapeTrasGuardarDisp'));
 }
 // Pantalla de verificación del administrador (aviso "Solape de horas")
 function _dlgSolapeDisp(){
