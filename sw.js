@@ -88,7 +88,7 @@ self.addEventListener('push', function(e){
   var n = +d.n || 0;
   var tareas = [self.registration.showNotification(d.titulo || 'IRV-10', {
     body: d.texto || 'Tienes asignaciones o tareas pendientes.',
-    tag: 'pendientes', renotify: true,
+    tag: 'aviso-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), // cada aviso queda aparte (con la misma etiqueta cada uno borraba al anterior)
     icon: './icon.png', badge: './icon.png',
     data: {n: n}
   })];

@@ -36,7 +36,7 @@ function _pushTarjeta(html){
 }
 function _pushOcultarTarjeta(){ _pushTarjeta(''); }
 function _pushCerrarAvisos(){
-  navigator.serviceWorker.ready.then(function(reg){ return reg.getNotifications({tag: 'pendientes'}); })
+  navigator.serviceWorker.ready.then(function(reg){ return reg.getNotifications(); })
     .then(function(lista){ lista.forEach(function(n){ n.close(); }); }).catch(function(){});
 }
 // Se llama cada vez que el técnico (con asignaciones) ve su inicio: muestra el botón para activar los avisos si hace falta, o deja la
