@@ -274,6 +274,15 @@ function renderAsgAdmin() {
     });
     snapNotif.forEach(function(doc){
       var n = doc.data();
+      if(n.tipo === 'solape'){
+        var _ps = (n.partes||[]).map(function(p){ return 'orden '+escHtml(p.pedido||'')+' '+escHtml(p.desde||'')+'–'+escHtml(p.hasta||''); }).join(' / ');
+        html += '<div class="act-list-item" onclick="verSolapeDisp(\''+doc.id+'\')">'
+          + '<span class="act-num" style="color:var(--red);">&#9201;&#65039;</span>'
+          + '<div><div class="act-info">Solape de horas · '+escHtml((n.tecnicos||[]).join(', '))+'</div>'
+          + '<div class="act-sub">'+escHtml((n.dia||'').split('-').reverse().join('/'))+' · '+_ps+'</div></div>'
+          + '</div>';
+        return;
+      }
       html += '<div class="act-list-item" onclick="verNotificacionTecnico(\''+doc.id+'\')">'
         + '<span class="act-num" style="color:var(--red);">&#9888;&#65039;</span>'
         + '<div><div class="act-info">'+escHtml(n.tecnico)+'</div>'

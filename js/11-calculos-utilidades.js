@@ -1,16 +1,233 @@
 // ===== FRANJAS =====
 
+// ===== DISPONIBILIDAD DE TÉCNICOS Y AYUDANTE HABITUAL =====
+// Un técnico no puede estar en dos partes a la vez. El selector solo ofrece a los técnicos libres a esas horas (fecha, llegada y salida
+// del formulario); al generar se vuelve a comprobar en vivo (solo con internet; sin internet no se bloquea y se revisa al sincronizar);
+// y si un solape llega a guardarse (sin internet, o dos técnicos a la vez) el administrador recibe un aviso para verificarlo.
+// El "ayudante habitual" de cada principal sale de sus partes de los últimos 30 días; elegir a otro pide confirmación.
+var _dispDia={fecha:null, partes:[], enLinea:false};
+var _ayuConf={};
+var DISP_DIAS_HABITUAL=30, DISP_MIN_PARTES=3, DISP_PCT_HABITUAL=0.30;
+function _hmDisp(s){ var m=String(s==null?'':s).match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1])*60+(+m[2]) : null; }
+function _ivDisp(p){ var a=_hmDisp(p.arr), b=p.lea?_hmDisp(p.lea):((typeof p.fin==='number')?p.fin:null); if(a===null||b===null) return null; if(b<=a) b+=1440; return [a,b]; }
+function _docIdDisp(p){ return ((p.clienteId||'mercadona')+'_'+p.fecha+'_'+p.centro+'_'+p.pedido).replace(/[\/\s]/g,'-'); }
+function _igualDisp(a,b){ return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase(); }
+function _avisoDisp(msg){ if(typeof _toast==='function') _toast(msg,'var(--red)'); else alert(msg); }
+// Identidad del parte que se está llenando (para no compararlo consigo mismo al editarlo o reemplazarlo)
+function _idParteEnFormDisp(){
+  var ie=(typeof _editIdx!=='undefined' && _editIdx!==null && _editIdx!==undefined)?_editIdx:window._editIdxBackup;
+  if(ie!==null && ie!==undefined){ var o=getH()[ie]; if(o) return _docIdDisp(o); }
+  var ped=($('pedido').value||'').trim()||((typeof _pedidoNoMerc!=='undefined' && _pedidoNoMerc)||'');
+  return _docIdDisp({clienteId:curCliente?curCliente.id:'mercadona', fecha:$('fecha').value, centro:($('centro').value||'').trim(), pedido:ped});
+}
+function _partesDiaDisp(fecha){ return (_dispDia.fecha===fecha) ? _dispDia.partes : getH().filter(function(r){ return r.fecha===fecha; }); }
+// ¿Ya está este técnico en otro parte del día con horas que se pisan con las del formulario? Devuelve el parte en conflicto o null.
+function _conflictoDisp(nombre){
+  var fecha=$('fecha').value, a=_hmDisp($('arr').value), b=_hmDisp($('lea').value);
+  if(!fecha || a===null || b===null || !nombre) return null;
+  if(b<=a) b+=1440;
+  var yo=_idParteEnFormDisp(), hallado=null;
+  _partesDiaDisp(fecha).forEach(function(p){
+    if(hallado) return;
+    if((p._docId||_docIdDisp(p))===yo) return;
+    if(!(p.tecnicos||[]).some(function(t){ return _igualDisp(t,nombre); })) return;
+    var iv=_ivDisp(p); if(!iv) return;
+    if(a<iv[1] && iv[0]<b) hallado={pedido:p.pedido, centro:p.centro, desde:p.arr, hasta:p.lea, con:(p.tecnicos||[]).filter(function(t){ return !_igualDisp(t,nombre); })};
+  });
+  return hallado;
+}
+function _textoSolapeDisp(nombre,c){
+  var con=c.con.length ? c.con.join(' y ') : '';
+  return nombre+' ya está en el parte de la orden '+(c.pedido||'')+' de '+c.desde+' a '+c.hasta+(con?' con '+con:'')+'. Si crees que hay un error, confírmalo'+(con?' con '+con:'')+' antes de guardar tu parte.';
+}
+// Partes del día: en vivo desde Firestore (máx. 4 s) y, si no hay internet o tarda, la copia local
+function _cargarPartesDiaDisp(fecha, cb){
+  var local=getH().filter(function(r){ return r.fecha===fecha; });
+  if(typeof _db==='undefined' || !_db || !window._sesion || navigator.onLine===false){ cb(local,false); return; }
+  var hecho=false, t=setTimeout(function(){ if(hecho) return; hecho=true; cb(local,false); }, 4000);
+  _db.collection('partes').where('fecha','==',fecha).get().then(function(snap){
+    if(hecho) return; hecho=true; clearTimeout(t);
+    var l=[]; snap.forEach(function(d){ l.push(Object.assign({_docId:d.id}, d.data())); });
+    cb(l,true);
+  }).catch(function(){ if(hecho) return; hecho=true; clearTimeout(t); cb(local,false); });
+}
+var _dispTimer=null;
+function _refrescarDispDisp(){
+  clearTimeout(_dispTimer);
+  _dispTimer=setTimeout(function(){
+    var f=$('fecha') ? $('fecha').value : ''; if(!f) return;
+    _cargarPartesDiaDisp(f,function(l,en){
+      _dispDia={fecha:f, partes:l, enLinea:en};
+      var wr=$('workersRol'); if(wr && wr.style.display!=='none') renderWorkers();
+    });
+  },300);
+}
+document.addEventListener('change',function(e){ var id=e.target&&e.target.id; if(id==='fecha'||id==='arr'||id==='lea') _refrescarDispDisp(); });
+document.addEventListener('input',function(e){ var id=e.target&&e.target.id; if(id==='arr'||id==='lea') _refrescarDispDisp(); });
+// Ayudantes habituales de un principal: los que, en sus partes de los últimos 30 días, suponen al menos el 30 % de los días con ayudante.
+// Con menos de 3 partes en esa ventana no hay base y no se pide confirmación.
+function _habitualesDisp(principal){
+  var d=new Date(); d.setDate(d.getDate()-DISP_DIAS_HABITUAL);
+  var desde=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  var partes=getH().filter(function(x){ return x.fecha>=desde && x.tecnicos && x.tecnicos[0] && _igualDisp(x.tecnicos[0],principal); });
+  var diasAyu={}, porAyu={};
+  partes.forEach(function(x){ var ay=x.tecnicos.slice(1); if(!ay.length) return; diasAyu[x.fecha]=1; ay.forEach(function(n){ (porAyu[n]=porAyu[n]||{})[x.fecha]=1; }); });
+  var total=Object.keys(diasAyu).length, hab=[];
+  Object.keys(porAyu).forEach(function(n){ if(total && Object.keys(porAyu[n]).length/total>=DISP_PCT_HABITUAL) hab.push(n); });
+  return {base:partes.length>=DISP_MIN_PARTES, habituales:hab};
+}
+function _claveAyuDisp(principal,ayudante){ return ($('fecha').value||'')+'|'+String(principal).toLowerCase()+'|'+String(ayudante).toLowerCase(); }
+// Texto de la confirmación si el ayudante no es el habitual del principal (o null si no hace falta preguntar)
+function _preguntaAyudanteDisp(principal, ayudante){
+  if(!principal || !ayudante || _igualDisp(principal,ayudante)) return null;
+  if(_ayuConf[_claveAyuDisp(principal,ayudante)]) return null;
+  var h=_habitualesDisp(principal); if(!h.base) return null;
+  if(h.habituales.some(function(n){ return _igualDisp(n,ayudante); })) return null;
+  var yo=window._sesion && window._sesion.nombre, esYo=!!(yo && _igualDisp(yo,principal));
+  return 'Normalmente '+(esYo?'no trabajas':principal+' no trabaja')+' con '+ayudante+'. ¿Confirmas que hoy trabajaron juntos?';
+}
+// Técnicos que se ofrecen en el hueco i: activos, del tipo de trabajo, sin repetir en este parte y libres a esas horas
+function _itemsDropDisp(i){
+  var usados=wNames.filter(function(n,ni){ return ni!==i && n && n.trim(); });
+  var propio=(wNames[i]||'').trim();
+  var tecs=getTecnicos().filter(function(t){
+    if(t.activo===false) return false;
+    if(t.jobs && t.jobs.length && t.jobs.indexOf(curJob)<0) return false;
+    if(usados.indexOf(t.nombre)>=0) return false;
+    if(_igualDisp(t.nombre,propio)) return true;
+    return !_conflictoDisp(t.nombre);
+  });
+  return tecs.map(function(t){
+    return '<div onmousedown="tecSeleccionar('+i+',\''+t.nombre.replace(/\'/g,'\\\'')+'\')" style="padding:10px 14px;font-size:.88rem;cursor:pointer;border-bottom:1px solid var(--border2);">'+t.nombre+'</div>';
+  }).join('');
+}
+// Explicación (solo si el técnico que falta es un ayudante habitual de quien llena el parte): que no parezca un fallo de la app
+function _pintarAvisoDisp(){
+  var el=$('tecDispAviso'); if(!el) return;
+  var principal=(wNames[0]||'').trim(), msgs=[];
+  if(principal){
+    var h=_habitualesDisp(principal);
+    if(h.base) h.habituales.forEach(function(n){
+      if(wNames.some(function(x){ return _igualDisp(x,n); })) return;
+      var t=getTecnicos().find(function(t){ return _igualDisp(t.nombre,n); }); if(!t || t.activo===false) return;
+      var c=_conflictoDisp(n); if(c) msgs.push(_textoSolapeDisp(n,c));
+    });
+  }
+  el.innerHTML=msgs.map(function(m){ return '<div style="font-size:.8rem;color:var(--amber);margin-top:8px;">'+escHtml(m)+'</div>'; }).join('');
+}
 function tecMostrarDrop(i){
-  var d=$('tecDrop'+i); if(d) d.style.display='block';
+  var d=$('tecDrop'+i); if(!d) return;
+  d.innerHTML=_itemsDropDisp(i);
+  d.style.display='block';
+  _refrescarDispDisp();
 }
 function tecOcultarDrop(i){
   setTimeout(function(){ var d=$('tecDrop'+i); if(d) d.style.display='none'; },150);
 }
 function tecSeleccionar(i,nombre){
-  wNames[i]=nombre;
-  var inp=$('wInp'+i); if(inp) inp.value=nombre;
-  renderWorkers();
-  if(i===0) checkAutoEnlace(); // el técnico principal determina el enlace, reevaluar
+  var aplicar=function(){
+    wNames[i]=nombre;
+    var inp=$('wInp'+i); if(inp) inp.value=nombre;
+    renderWorkers();
+    if(i===0) checkAutoEnlace(); // el técnico principal determina el enlace, reevaluar
+  };
+  var principal=(wNames[0]||'').trim();
+  var q=(i>0 && principal) ? _preguntaAyudanteDisp(principal,nombre) : null;
+  if(!q){ aplicar(); return; }
+  _confirmarApp(q, function(){ _ayuConf[_claveAyuDisp(principal,nombre)]=true; aplicar(); }, function(){ renderWorkers(); });
+}
+// Al generar: 1) verificación final en vivo del solape (con internet), 2) confirmación de los ayudantes no habituales que falten por confirmar
+function _verificarSolapeDisp(seguir){
+  var fecha=$('fecha').value;
+  var nombres=wNames.filter(function(n){ return n && n.trim(); }).map(function(n){ return n.trim(); });
+  var ie=(typeof _editIdx!=='undefined' && _editIdx!==null && _editIdx!==undefined)?_editIdx:window._editIdxBackup;
+  if(ie!==null && ie!==undefined){
+    var o=getH()[ie];
+    // Editando sin cambiar fecha, horas ni técnicos: nada que comprobar (no se bloquea el cierre de partes antiguos)
+    if(o && o.fecha===fecha && o.arr===$('arr').value && o.lea===$('lea').value && JSON.stringify(o.tecnicos||[])===JSON.stringify(nombres)){ seguir(); return; }
+  }
+  _cargarPartesDiaDisp(fecha,function(partes,enLinea){
+    _dispDia={fecha:fecha, partes:partes, enLinea:enLinea};
+    if(!enLinea){ seguir(); return; } // sin internet no se puede verificar: no se bloquea (se revisa al sincronizar y se avisa al administrador)
+    for(var k=0;k<nombres.length;k++){
+      var c=_conflictoDisp(nombres[k]);
+      if(c){ showMsg('msgForm',_textoSolapeDisp(nombres[k],c),'error'); return; }
+    }
+    seguir();
+  });
+}
+function _confirmarAyudantesDisp(seguir){
+  var principal=(wNames[0]||'').trim();
+  var pend=wNames.slice(1).map(function(n){ return (n||'').trim(); }).filter(function(n){ return n && _preguntaAyudanteDisp(principal,n); });
+  var paso=function(k){
+    if(k>=pend.length){ seguir(); return; }
+    var n=pend[k], q=_preguntaAyudanteDisp(principal,n);
+    if(!q){ paso(k+1); return; }
+    _confirmarApp(q, function(){ _ayuConf[_claveAyuDisp(principal,n)]=true; paso(k+1); }, function(){ showMsg('msgForm','Revisa el ayudante: '+n+'.','warn'); });
+  };
+  paso(0);
+}
+function _verificarAntesDeGenerarDisp(){ _verificarSolapeDisp(function(){ _confirmarAyudantesDisp(_generarPaso2); }); }
+// Tras guardar (o reenviar tras volver la conexión): si el parte se pisa con otro del mismo técnico, aviso al administrador
+var _RAZONES_SOLAPE_DISP=/^(Parte nuevo|Parte editado|Parte reemplazado|Reintento tras fallo|Terminado de guardar)/;
+function _revisarSolapeTrasGuardarDisp(parte, razon){
+  if(typeof _db==='undefined' || !_db || !window._sesion || !parte || !parte.fecha || !parte.arr) return;
+  if(razon && !_RAZONES_SOLAPE_DISP.test(razon)) return;
+  var a=_ivDisp(parte); if(!a) return;
+  var yo=_docIdDisp(parte);
+  _db.collection('partes').where('fecha','==',parte.fecha).get().then(function(snap){
+    snap.forEach(function(d){
+      if(d.id===yo) return;
+      var o=d.data(), b=_ivDisp(o);
+      if(!b || !(a[0]<b[1] && b[0]<a[1])) return;
+      var comunes=(parte.tecnicos||[]).filter(function(t){ return (o.tecnicos||[]).some(function(x){ return _igualDisp(x,t); }); });
+      if(!comunes.length) return;
+      var nid='solape_'+[yo,d.id].sort().join('__');
+      _db.collection('notificacionesTecnico').doc(nid).set({
+        tipo:'solape', fecha:Date.now(), dia:parte.fecha, tecnicos:comunes, generadoPor:(window._sesion&&window._sesion.nombre)||'',
+        partes:[
+          {id:yo, pedido:parte.pedido||'', centro:parte.centro||'', desde:parte.arr||'', hasta:parte.lea||'', tecnicos:parte.tecnicos||[]},
+          {id:d.id, pedido:o.pedido||'', centro:o.centro||'', desde:o.arr||'', hasta:o.lea||'', tecnicos:o.tecnicos||[]}
+        ]
+      }).catch(function(){});
+      if(window._sesion.rol==='tecnico') _avisoDisp('Tu parte coincide en horas con otro ('+comunes.join(', ')+'). El administrador lo revisará.');
+    });
+  }).catch(function(){});
+}
+// Pantalla de verificación del administrador (aviso "Solape de horas")
+function _dlgSolapeDisp(){
+  var d=$('dlgSolapeDisp');
+  if(!d){
+    d=document.createElement('div'); d.className='dialogo'; d.id='dlgSolapeDisp';
+    d.innerHTML='<div class="dialogo-box"><div class="dialogo-titulo">&#9201;&#65039; Solape de horas</div><div class="dialogo-sub" id="dlgSolapeCuerpo" style="margin-bottom:14px;white-space:pre-line;"></div><div id="dlgSolapeBtns"></div><div class="brow"><button class="btn btn-s" style="flex:1;justify-content:center" onclick="document.getElementById(\'dlgSolapeDisp\').classList.remove(\'show\')">Cerrar</button></div></div>';
+    document.body.appendChild(d);
+  }
+  return d;
+}
+function verSolapeDisp(id){
+  if(typeof _db==='undefined' || !_db) return;
+  _db.collection('notificacionesTecnico').doc(id).get().then(function(doc){
+    if(!doc.exists){ _avisoDisp('Este aviso ya no existe.'); if(typeof renderAsgAdmin==='function') renderAsgAdmin(); return; }
+    var n=doc.data(), d=_dlgSolapeDisp(), fF=(n.dia||'').split('-').reverse().join('/');
+    var lineas=(n.partes||[]).map(function(p){ return '• Orden '+(p.pedido||'')+' · Centro '+(p.centro||'')+' · '+p.desde+' – '+p.hasta+'\n   '+(p.tecnicos||[]).join(' · '); }).join('\n');
+    document.getElementById('dlgSolapeCuerpo').textContent=(n.tecnicos||[]).join(' y ')+' aparece en dos partes el '+fF+' con horas que se pisan:\n'+lineas;
+    var h=(n.partes||[]).map(function(p){ return '<div class="brow" style="margin-bottom:8px;"><button class="btn btn-p" style="flex:1;justify-content:center" onclick="abrirParteSolapeDisp(\''+escHtml(p.id)+'\')">Abrir parte (orden '+escHtml(p.pedido||'')+')</button></div>'; }).join('');
+    h+='<div class="brow" style="margin-bottom:8px;"><button class="btn btn-s" style="flex:1;justify-content:center" onclick="revisadoSolapeDisp(\''+doc.id+'\')">&#10003; Marcar como revisado</button></div>';
+    document.getElementById('dlgSolapeBtns').innerHTML=h;
+    d.classList.add('show');
+  }).catch(function(){ _avisoDisp('No se pudo abrir el aviso. Comprueba tu conexión.'); });
+}
+function abrirParteSolapeDisp(docId){
+  var idx=getH().findIndex(function(x){ return _docIdDisp(x)===docId; });
+  if(idx<0){ _avisoDisp('Ese parte todavía no está en este dispositivo.'); return; }
+  document.getElementById('dlgSolapeDisp').classList.remove('show');
+  verParte(idx);
+}
+function revisadoSolapeDisp(id){
+  _db.collection('notificacionesTecnico').doc(id).delete().then(function(){
+    document.getElementById('dlgSolapeDisp').classList.remove('show');
+    if(typeof renderAsgAdmin==='function') renderAsgAdmin();
+  }).catch(function(){ _avisoDisp('No se pudo marcar. Comprueba tu conexión.'); });
 }
 function renderWorkers(){
   var w=Math.max(1,Math.min(4,+$('w').value||0));
@@ -31,16 +248,12 @@ function renderWorkers(){
     return t.activo!==false && (!t.jobs||!t.jobs.length||t.jobs.indexOf(curJob)>=0);
   });
   for(var i=0;i<w;i++){
-    var _usados=wNames.filter(function(n,ni){return ni!==i&&n&&n.trim();});
-    var _tDisp=_allTecs.filter(function(t){return _usados.indexOf(t.nombre)<0;});
     var _dropId='tecDrop'+i;
-    var _dropItems=_tDisp.map(function(t){
-      return '<div onmousedown="tecSeleccionar('+i+',\''+t.nombre.replace(/\'/g,'\\\'')+'\')" style="padding:10px 14px;font-size:.88rem;cursor:pointer;border-bottom:1px solid var(--border2);">'+t.nombre+'</div>';
-    }).join('');
+    var _dropItems=_itemsDropDisp(i); // solo técnicos libres a esas horas (ver DISPONIBILIDAD DE TÉCNICOS)
     var _dropHtml='<div id="'+_dropId+'" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:99;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--r-sm);max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.4);">'+_dropItems+'</div>';
     var _inp = _esAdminEditando
       ? '<span style="flex:1;min-width:120px;padding:5px 9px;font-size:.85rem;color:var(--text);display:inline-block;">'+(wNames[i]||'—')+'</span>'
-      : '<input type="text" id="wInp'+i+'" placeholder="Nombre" style="flex:1;min-width:120px;padding:5px 9px;font-size:.85rem;width:100%;" value="'+(wNames[i]||'')+'" oninput="wNames['+i+']=this.value'+(i===0?';checkAutoEnlace()':'')+'" onfocus="tecMostrarDrop('+i+')" onblur="tecOcultarDrop('+i+')">';
+      : '<input type="text" id="wInp'+i+'" readonly placeholder="Elegir técnico" style="flex:1;min-width:120px;padding:5px 9px;font-size:.85rem;width:100%;cursor:pointer;" value="'+(wNames[i]||'')+'" onfocus="tecMostrarDrop('+i+')" onclick="tecMostrarDrop('+i+')" onblur="tecOcultarDrop('+i+')">'; // solo se elige de la lista: no se escribe a mano
     if(nr&&i===0){
       html+='<div class="worker-row" style="flex-wrap:wrap;gap:6px"><span class="worker-label">Trabajador 1<span class="wbadge wbadge-auto">Oficial</span></span><div style="position:relative;flex:1;min-width:120px;">'+_inp+_dropHtml+'</div></div>';
     } else if(nr){
@@ -50,7 +263,9 @@ function renderWorkers(){
       html+='<div class="worker-row" style="flex-wrap:wrap;gap:6px"><span class="worker-label">Trabajador '+(i+1)+'</span><div style="position:relative;flex:1;min-width:120px;">'+_inp+_dropHtml+'</div></div>';
     }
   }
-  $('workersList').innerHTML=html;
+  $('workersList').innerHTML=html+'<div id="tecDispAviso"></div>';
+  _pintarAvisoDisp();
+  if(_dispDia.fecha!==$('fecha').value) _refrescarDispDisp(); // partes del día en vivo (una sola vez por fecha)
 }
 
 function refreshCounts(){
@@ -456,9 +671,9 @@ function verOrden(enc){
       }
     }
     modeloPartes.push({ n:pi+1, numParte:p.r.numParte||'', fecha:fF, etiqueta:_etiquetaTxt, certificadoEl:_certTxt, color:_color,
-      horario:(p.r.arr||'--')+' – '+(p.r.lea||'--')+' · '+dur });
+      horario:(p.r.arr||'--')+' – '+(p.r.lea||'--')+' · '+dur, tecnicos:(p.r.tecnicos||[]).join(' · ') });
     var _tituloStyle='font-size:.85rem;font-weight:600;'+(_color?('color:'+_color+';'):'');
-    return '<div class="orden-parte-item" onclick="verParte('+p.idx+')"><div><div style="'+_tituloStyle+'">Parte '+(pi+1)+(p.r.numParte?' ('+p.r.numParte+')':'')+' &middot; '+fF+_etiqueta+'</div><div style="font-size:.76rem;color:var(--text2);">'+(p.r.arr||'--')+' – '+(p.r.lea||'--')+' &middot; '+dur+'</div>'+_fechaCertHTML+'</div><span style="color:var(--text3);">&#8250;</span></div>';
+    return '<div class="orden-parte-item" onclick="verParte('+p.idx+')"><div><div style="'+_tituloStyle+'">Parte '+(pi+1)+(p.r.numParte?' ('+p.r.numParte+')':'')+' &middot; '+fF+_etiqueta+'</div><div style="font-size:.76rem;color:var(--text2);">'+(p.r.arr||'--')+' – '+(p.r.lea||'--')+' &middot; '+dur+'</div>'+((p.r.tecnicos&&p.r.tecnicos.length)?'<div style="font-size:.76rem;color:var(--text2);">'+p.r.tecnicos.map(escHtml).join(' &middot; ')+'</div>':'')+_fechaCertHTML+'</div><span style="color:var(--text3);">&#8250;</span></div>';
   }).join('');
 
   var codHTML=Object.values(codAcum).length

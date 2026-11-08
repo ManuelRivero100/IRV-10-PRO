@@ -150,7 +150,7 @@ function pdfTotalRow(doc,y,val){
 // título con su etiqueta (Cerrada / Certificados), horario y, si la hay, la fecha de certificación
 function pdfParteOrdenRow(doc,y,p){
   var base='Parte '+p.n+(p.numParte?' ('+p.numParte+')':'')+' · '+p.fecha;
-  var h=p.certificadoEl?13:9;
+  var h=(p.certificadoEl?13:9)+(p.tecnicos?3:0); // con los técnicos del parte, una línea más
   y=pdfCheck(doc,y,h+1);
   doc.setFillColor(_PDF.bgSurf[0],_PDF.bgSurf[1],_PDF.bgSurf[2]);
   doc.rect(_PDF.mg,y,_PDF.cW,h,'F');
@@ -171,9 +171,11 @@ function pdfParteOrdenRow(doc,y,p){
   doc.setFont('helvetica','normal'); doc.setTextColor(_PDF.text2[0],_PDF.text2[1],_PDF.text2[2]);
   doc.setFontSize(6.5);
   doc.text(p.horario,_PDF.mg+3,y+8.5);
+  var yl=y+8.5;
+  if(p.tecnicos){ yl+=3; doc.text(pdfLimpiar(p.tecnicos),_PDF.mg+3,yl); }
   if(p.certificadoEl){
     doc.setTextColor(_PDF.green[0],_PDF.green[1],_PDF.green[2]);
-    doc.text(p.certificadoEl,_PDF.mg+3,y+11.5);
+    doc.text(p.certificadoEl,_PDF.mg+3,yl+3);
   }
   return y+h+1.5;
 }

@@ -238,6 +238,13 @@ function compartirOrden(){
   var ordenTitle=o.actObras?o.actObras+' · '+o.job:'Orden '+o.pedido+' · '+o.job;
   lines.push(ordenTitle+' · '+(o.estado==='en-ejecucion'?'En ejecución':'Finalizado'));
   lines.push('Fechas: '+o.fechas.join(', '));
+  var _pOrden=(o.resumen && o.resumen.partes) || [];
+  if(_pOrden.length){
+    lines.push(''); lines.push('PARTES DE ESTA ORDEN');
+    _pOrden.forEach(function(p){
+      lines.push('Parte '+p.n+(p.numParte?' ('+p.numParte+')':'')+' · '+p.fecha+' · '+p.horario+(p.tecnicos?' · '+p.tecnicos:''));
+    });
+  }
   lines.push('');
   lines.push('CÓDIGOS ACUMULADOS');
   Object.values(o.codAcum).forEach(function(c){

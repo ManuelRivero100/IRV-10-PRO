@@ -424,7 +424,7 @@ function _subirParteAFirestore(parte, razon){
     // vuelva la red el parte solo se salva (y se reintenta al volver a entrar) si ya consta como pendiente. Al confirmarse se desmarca.
     _marcarPendienteSync(parte, true);
     _db.collection('partes').doc(docId).set(datos, {merge:true}).then(function(){
-      _marcarPendienteSync(parte, false);
+      _marcarPendienteSync(parte, false); try{ _revisarSolapeTrasGuardarDisp(parte, razon); }catch(e){}
     }).catch(function(){
       _marcarPendienteSync(parte, true);
     });

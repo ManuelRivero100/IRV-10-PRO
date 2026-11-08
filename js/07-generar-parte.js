@@ -65,29 +65,29 @@ function generar(){
   // Excepción "0000": control interno, nunca aplica a Mercadona — se deja repetir sin
   // comprobar duplicados.
   var _esMercadonaActual=curCliente&&curCliente.tipo==='mercadona';
-  if(numParteVal==='0000' && !_esMercadonaActual){ _generarPaso2(); return; }
+  if(numParteVal==='0000' && !_esMercadonaActual){ _verificarAntesDeGenerarDisp(); return; }
   // Editando un parte existente sin cambiar su número: es el mismo documento reemplazándose
   // a sí mismo, así que no tiene sentido (ni es seguro) comprobar si "ya está usado" — lo
   // encontraría a él mismo en Firestore y bloquearía guardar el propio parte.
-  if(_editIdx!==null && numParteVal===(window._editNumParteOriginal||'')){ _generarPaso2(); return; }
+  if(_editIdx!==null && numParteVal===(window._editNumParteOriginal||'')){ _verificarAntesDeGenerarDisp(); return; }
   if(typeof _db !== 'undefined' && _db){
     _verificarConexionFirestore(function(hayConexion){
       if(hayConexion){
         _db.collection('partes').where('numParte','==',numParteVal).limit(1).get().then(function(snap){
           if(!snap.empty){ showMsg('msgForm','Ese número de parte ya está usado. Introduce uno distinto.','error'); return; }
-          _generarPaso2();
+          _verificarAntesDeGenerarDisp();
         }).catch(function(){
           if(_numParteUsadoLocal(numParteVal)){ showMsg('msgForm','Ese número de parte ya está usado. Introduce uno distinto.','error'); return; }
-          _generarPaso2();
+          _verificarAntesDeGenerarDisp();
         });
       } else {
         if(_numParteUsadoLocal(numParteVal)){ showMsg('msgForm','Ese número de parte ya está usado. Introduce uno distinto.','error'); return; }
-        _generarPaso2();
+        _verificarAntesDeGenerarDisp();
       }
     });
   } else {
     if(_numParteUsadoLocal(numParteVal)){ showMsg('msgForm','Ese número de parte ya está usado. Introduce uno distinto.','error'); return; }
-    _generarPaso2();
+    _verificarAntesDeGenerarDisp();
   }
 }
 
