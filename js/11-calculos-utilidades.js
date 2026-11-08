@@ -5,7 +5,7 @@
 // del formulario); al generar se vuelve a comprobar en vivo (solo con internet; sin internet no se bloquea y se revisa al sincronizar);
 // y si un solape llega a guardarse (sin internet, o dos técnicos a la vez) el administrador recibe un aviso para verificarlo.
 // El "ayudante habitual" de cada principal sale de sus partes de los últimos 30 días; elegir a otro pide confirmación.
-var _dispDia={fecha:null, partes:[], enLinea:false};
+var _dispDia={fecha:null, partes:[], enLinea:false, ts:0};
 var _ayuConf={};
 var DISP_DIAS_HABITUAL=30, DISP_MIN_PARTES=3, DISP_PCT_HABITUAL=0.30;
 function _hmDisp(s){ var m=String(s==null?'':s).match(/^(\d{1,2}):(\d{2})/); return m ? (+m[1])*60+(+m[2]) : null; }
@@ -52,18 +52,25 @@ function _cargarPartesDiaDisp(fecha, cb){
   }).catch(function(){ if(hecho) return; hecho=true; clearTimeout(t); cb(local,false); });
 }
 var _dispTimer=null;
+// Actualiza las opciones de los desplegables y el aviso SIN repintar el formulario (repintarlo cerraría el desplegable que está abierto)
+function _actualizarListasDisp(){
+  for(var i=0;i<4;i++){ var d=$('tecDrop'+i); if(d) d.innerHTML=_itemsDropDisp(i); }
+  _pintarAvisoDisp();
+}
+// Partes del día en vivo: solo si es otra fecha o los datos tienen más de 60 s
 function _refrescarDispDisp(){
   clearTimeout(_dispTimer);
   _dispTimer=setTimeout(function(){
     var f=$('fecha') ? $('fecha').value : ''; if(!f) return;
+    if(_dispDia.fecha===f && Date.now()-(_dispDia.ts||0)<60000) return;
     _cargarPartesDiaDisp(f,function(l,en){
-      _dispDia={fecha:f, partes:l, enLinea:en};
-      var wr=$('workersRol'); if(wr && wr.style.display!=='none') renderWorkers();
+      _dispDia={fecha:f, partes:l, enLinea:en, ts:Date.now()};
+      _actualizarListasDisp();
     });
   },300);
 }
-document.addEventListener('change',function(e){ var id=e.target&&e.target.id; if(id==='fecha'||id==='arr'||id==='lea') _refrescarDispDisp(); });
-document.addEventListener('input',function(e){ var id=e.target&&e.target.id; if(id==='arr'||id==='lea') _refrescarDispDisp(); });
+document.addEventListener('change',function(e){ var id=e.target&&e.target.id; if(id==='fecha'||id==='arr'||id==='lea'){ _actualizarListasDisp(); _refrescarDispDisp(); } });
+document.addEventListener('input',function(e){ var id=e.target&&e.target.id; if(id==='arr'||id==='lea'){ _actualizarListasDisp(); _refrescarDispDisp(); } });
 // Ayudantes habituales de un principal: los que, en sus partes de los últimos 30 días, suponen al menos el 30 % de los días con ayudante.
 // Con menos de 3 partes en esa ventana no hay base y no se pide confirmación.
 function _habitualesDisp(principal){
@@ -147,7 +154,7 @@ function _verificarSolapeDisp(seguir){
     if(o && o.fecha===fecha && o.arr===$('arr').value && o.lea===$('lea').value && JSON.stringify(o.tecnicos||[])===JSON.stringify(nombres)){ seguir(); return; }
   }
   _cargarPartesDiaDisp(fecha,function(partes,enLinea){
-    _dispDia={fecha:fecha, partes:partes, enLinea:enLinea};
+    _dispDia={fecha:fecha, partes:partes, enLinea:enLinea, ts:Date.now()};
     if(!enLinea){ seguir(); return; } // sin internet no se puede verificar: no se bloquea (se revisa al sincronizar y se avisa al administrador)
     for(var k=0;k<nombres.length;k++){
       var c=_conflictoDisp(nombres[k]);
