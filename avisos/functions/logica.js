@@ -107,7 +107,25 @@ function avisoRegistroHoras() {
   return { titulo: 'Registro de horas', texto: 'Aún no has llenado tu registro de horas de hoy' };
 }
 
+// ---- Avisos al TECNICO por lo demas que le sale en su panel de avisos de la app ----
+// Su solicitud de reabrir una orden fue rechazada por el administrador (solo cuando pasa a rechazada).
+function avisoTecnicoRechazo(antes, despues) {
+  const sol = despues && despues.solicitudReabrir;
+  if (!sol || !sol.rechazada || !sol.tecnico) return null;
+  if (antes && antes.solicitudReabrir && antes.solicitudReabrir.rechazada) return null;
+  const ref = unir([despues.pedido ? 'Orden ' + despues.pedido : '', despues.centro ? 'Centro ' + despues.centro : '']);
+  return { tecnico: sol.tecnico, titulo: 'Solicitud rechazada', texto: unir([despues.tienda, ref]) };
+}
+// Le comentan una tarea que ya tenia (vistaTecnico pasa a false). Las tareas nuevas o reasignadas ya las cubre avisarTarea.
+function avisoTecnicoTareaComentada(antes, despues) {
+  if (!antes || !despues || !despues.tecnico) return null;
+  if (antes.tecnico !== despues.tecnico) return null;
+  if (antes.vistaTecnico === false || despues.vistaTecnico !== false) return null;
+  return { tecnico: despues.tecnico, titulo: 'Tarea comentada', texto: despues.tienda || despues.cliente || 'Tienes un comentario nuevo en una tarea' };
+}
+
 module.exports = {
+  avisoTecnicoRechazo, avisoTecnicoTareaComentada,
   esFestivoNacional, idRegistroHoras, faltaRegistroHoras, avisoRegistroHoras,
   incidenciaSinIniciar, tareaSinIniciar, avisarIncidencia, avisarTarea,
   avisoAdminIncidencia, avisoAdminTarea, avisoAdminNotificacion, avisoAdminMaterial,

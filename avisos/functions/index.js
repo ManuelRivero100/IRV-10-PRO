@@ -99,6 +99,8 @@ exports.avisosIncidencias = onDocumentWritten(
     const despues = event.data.after.exists ? event.data.after.data() : null;
     const aviso = L.avisarIncidencia(antes, despues);
     if (aviso) await avisar(aviso);
+    const rechazo = L.avisoTecnicoRechazo(antes, despues);
+    if (rechazo) await avisar(rechazo);
     const avisoAdmin = L.avisoAdminIncidencia(antes, despues);
     if (avisoAdmin) await avisarAdmins(avisoAdmin);
   }
@@ -111,6 +113,8 @@ exports.avisosTareas = onDocumentWritten(
     const despues = event.data.after.exists ? event.data.after.data() : null;
     const aviso = L.avisarTarea(antes, despues);
     if (aviso) await avisar(aviso);
+    const comentada = L.avisoTecnicoTareaComentada(antes, despues);
+    if (comentada) await avisar(comentada);
     const avisoAdmin = L.avisoAdminTarea(antes, despues);
     if (avisoAdmin) await avisarAdmins(avisoAdmin);
   }
