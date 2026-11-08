@@ -1,0 +1,1 @@
+Rama "funciones": codigo de la funcion "avisos" (notificaciones al movil) del proyecto irv-10-pro. No es la app. La app esta en la rama "fuente".
