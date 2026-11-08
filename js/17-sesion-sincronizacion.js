@@ -972,7 +972,7 @@ function _asgLimpiarFormulario(){
 // Técnicos a los que se puede asignar una incidencia: activos, con PIN y que llenan partes. Quien no tiene "Llenar parte" marcado
 // en el catálogo solo ve Estadísticas y Registro de horario, así que no recibe incidencias.
 function _tecnicosAsignables(){
-  return getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin && t.principal !== false; });
+  return getTecnicos().filter(function(t){ return t.activo !== false && t.tienePin && t.principal === true; });
 }
 
 var _asgIncidenciasPorTec = {};
@@ -992,7 +992,7 @@ function renderAsgLista() {
     });
     // No salen los técnicos sin "Llenar parte" (no reciben incidencias) ni, además, los que tienen cero incidencias
     var _sinLlenarParte = {};
-    getTecnicos().forEach(function(t){ if(t.principal === false) _sinLlenarParte[t.nombre] = true; });
+    getTecnicos().forEach(function(t){ if(t.principal !== true) _sinLlenarParte[t.nombre] = true; });
     var nombres = Object.keys(_asgIncidenciasPorTec).filter(function(n){ return !_sinLlenarParte[n]; }).sort(function(a,b){
       if(a===_ASG_GRUPO_TODOS) return -1;
       if(b===_ASG_GRUPO_TODOS) return 1;

@@ -303,7 +303,7 @@ function renderCatTecnicos(){
       +'<label style="font-size:.75rem;color:var(--text2);font-weight:700;">PIN</label>'
       +'<input type="text" inputmode="numeric" maxlength="4" value="'+escHtml(_pinesVisibles[_idAcceso(t.nombre)]||'')+'" placeholder="'+(t.tienePin?'PIN nuevo':'sin PIN')+'" title="Escribe 4 cifras para '+(t.tienePin?'cambiar el PIN':'ponerle PIN')+'" style="width:80px;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9rem;letter-spacing:.2em;text-align:center;background:var(--surface2);color:var(--text);font-family:inherit;" onchange="tecEditarPin(\''+t.id+'\',this)">'
       +(t.tienePin?'<span title="Tiene PIN" style="font-size:.9rem;">&#128274;</span>':'')
-      +'<button onclick="tecTogglePrincipal(\''+t.id+'\','+(t.principal===false)+')" title="Llenar parte: ve toda la app. Sin marcar solo ve Estadísticas y Registro de horario" style="padding:4px 10px;border-radius:var(--r-sm);border:1.5px solid '+(t.principal!==false?'var(--green)':'var(--border)')+';background:'+(t.principal!==false?'var(--green-light)':'var(--surface2)')+';color:'+(t.principal!==false?'var(--green)':'var(--text2)')+';font-size:.76rem;font-family:inherit;cursor:pointer;">📝'+(t.principal!==false?' Llenar parte ✓':' Llenar parte')+'</button>'
+      +'<button onclick="tecTogglePrincipal(\''+t.id+'\','+(t.principal!==true)+')" title="Llenar parte: ve toda la app. Sin marcar solo ve Estadísticas y Registro de horario" style="padding:4px 10px;border-radius:var(--r-sm);border:1.5px solid '+(t.principal===true?'var(--green)':'var(--border)')+';background:'+(t.principal===true?'var(--green-light)':'var(--surface2)')+';color:'+(t.principal===true?'var(--green)':'var(--text2)')+';font-size:.76rem;font-family:inherit;cursor:pointer;">📝'+(t.principal===true?' Llenar parte ✓':' Llenar parte')+'</button>'
       +'<button onclick="tecToggleMatFlotante(\''+t.id+'\','+(!t.matFlotante)+')" title="Permitir introducir material flotante" style="padding:4px 10px;border-radius:var(--r-sm);border:1.5px solid '+(t.matFlotante?'var(--green)':'var(--border)')+';background:'+(t.matFlotante?'var(--green-light)':'var(--surface2)')+';color:'+(t.matFlotante?'var(--green)':'var(--text2)')+';font-size:.76rem;font-family:inherit;cursor:pointer;">🧩'+(t.matFlotante?' Mat. flotante ✓':' Mat. flotante')+'</button>'
       +'<button onclick="tecToggleActivo(\''+t.id+'\','+inactivo+')" style="margin-left:auto;padding:4px 12px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.78rem;font-family:inherit;cursor:pointer;">'+(inactivo?'✅ Activar':'⛔ Desactivar')+'</button>'
       +'</div>'
@@ -384,7 +384,7 @@ function tecToggleMatFlotante(id, activarAhora){
 }
 
 // Técnico principal: el que llena partes y ve toda la app. Sin "Principal" solo ve Estadísticas y Registro de horario.
-// Solo cuenta como no principal si se desactivó a propósito (principal===false); sin marcar es principal, como hasta ahora.
+// Solo cuenta como principal quien tiene la marca puesta (principal===true). Todo técnico NACE sin ella (ayudante); sin marcar = ayudante.
 function tecTogglePrincipal(id, activarAhora){
   var tecs=getTecnicos();
   var t=tecs.find(function(t){return t.id===id;});
@@ -395,7 +395,7 @@ function _esTecnicoSinPrincipal(){
   var s=window._sesion;
   if(!s || s.rol!=='tecnico' || s.multiRol) return false;
   var t=getTecnicos().find(function(x){ return x.nombre.toLowerCase()===s.nombre.toLowerCase(); });
-  return !!(t && t.principal===false);
+  return !!(t && t.principal!==true);
 }
 
 function catTab(tab,btn){
