@@ -39,7 +39,7 @@ async function enviar(docs, carga) {
   await Promise.all(docs.map(async function (doc) {
     const d = doc.data();
     try {
-      await webpush.sendNotification({ endpoint: d.endpoint, keys: d.keys }, carga, { TTL: TTL_SEGUNDOS });
+      await webpush.sendNotification({ endpoint: d.endpoint, keys: d.keys }, carga, { TTL: TTL_SEGUNDOS, urgency: 'high' });
     } catch (e) {
       // 404/410: el movil ya no existe (app desinstalada o permiso retirado). Se olvida para no volver a intentarlo.
       if (e && (e.statusCode === 404 || e.statusCode === 410)) await doc.ref.delete();
