@@ -138,20 +138,29 @@ exports.avisosMateriales = onDocumentCreated(
   }
 );
 
-// Recordatorio de las 17:00 (lunes a viernes, hora de Madrid) al tecnico que aun no ha llenado su registro de horas de hoy.
+// Recordatorio del registro de horas (lunes a viernes, hora de Madrid): una hora despues de lo ultimo que pase en la jornada del tecnico
+// (17:00 si no hay partes o terminan a las 16:00; si un parte termina mas tarde, una hora despues de su fin, viaje de vuelta incluido).
+// Se revisa cada 15 minutos entre las 17:00 y las 23:45; cada tecnico recibe el aviso UNA sola vez al dia (marca en avisosEnviados) y solo
+// si todavia no ha llenado su registro de horas de ese dia.
 exports.avisosHorasDiarias = onSchedule(
-  { schedule: '0 17 * * 1-5', timeZone: 'Europe/Madrid', region: REGION, secrets: [VAPID_PRIVADA] },
+  { schedule: '*/15 17-23 * * 1-5', timeZone: 'Europe/Madrid', region: REGION, secrets: [VAPID_PRIVADA] },
   async function () {
-    const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).formatToParts(new Date());
-    const g = function (t) { return (partes.find(function (p) { return p.type === t; }) || {}).value; };
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+    const g = function (t) { return (f.find(function (p) { return p.type === t; }) || {}).value; };
     const fecha = g('year') + '-' + g('month') + '-' + g('day');
     const diaSemana = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[g('weekday')];
+    const ahoraMin = Number(g('hour')) * 60 + Number(g('minute'));
     const us = await db.collection('usuario').get();
-    for (const doc of us.docs) {
-      const u = doc.data();
-      if (!L.faltaRegistroHoras(u, fecha, diaSemana, false)) continue; // candidatos: activo, con alta, dia laborable y no festivo
-      const reg = await db.collection('horasAdicionales').doc(L.idRegistroHoras(u.nombre, fecha)).get();
-      if (L.faltaRegistroHoras(u, fecha, diaSemana, reg.exists)) await avisar(Object.assign({ tecnico: u.nombre }, L.avisoRegistroHoras()));
+    const candidatos = us.docs.map(function (d) { return d.data(); }).filter(function (u) { return L.faltaRegistroHoras(u, fecha, diaSemana, false); }); // activo, con alta, dia laborable y no festivo
+    if (!candidatos.length) return;
+    const partesHoy = (await db.collection('partes').where('fecha', '==', fecha).get()).docs.map(function (d) { return d.data(); });
+    for (const u of candidatos) {
+      const id = L.idRegistroHoras(u.nombre, fecha);
+      const marca = db.collection('avisosEnviados').doc('horas_' + id);
+      const [reg, yaMarca] = await Promise.all([db.collection('horasAdicionales').doc(id).get(), marca.get()]);
+      if (!L.debeRecordarHoras(u, fecha, diaSemana, reg.exists, partesHoy, ahoraMin, yaMarca.exists)) continue;
+      await marca.set({ tecnico: u.nombre, fecha: fecha, enviado: Date.now(), minutoPrevisto: L.minutoRecordatorio(partesHoy, u.nombre) });
+      await avisar(Object.assign({ tecnico: u.nombre }, L.avisoRegistroHoras()));
     }
   }
 );

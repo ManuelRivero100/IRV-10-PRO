@@ -107,6 +107,32 @@ function avisoRegistroHoras() {
   return { titulo: 'Registro de horas', texto: 'Aún no has llenado tu registro de horas de hoy' };
 }
 
+// El recordatorio sale UNA HORA DESPUÉS de lo último que pase en la jornada del técnico: si no hay partes la jornada acaba a las 16:00
+// (recordatorio a las 17:00); si algún parte de hoy termina más tarde (incluye el viaje de vuelta, campo horaEnlace; si no, la salida, fin),
+// se cuenta una hora desde esa hora. Nunca después de las 23:45. Las horas son minutos desde medianoche, hora de Madrid.
+const FIN_JORNADA_BASE_MIN = 16 * 60;
+const ESPERA_RECORDATORIO_MIN = 60;
+const TOPE_RECORDATORIO_MIN = 23 * 60 + 45;
+function mismoNombre(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+function finJornadaMin(partesDelDia, nombre) {
+  let fin = FIN_JORNADA_BASE_MIN;
+  (partesDelDia || []).forEach(function (p) {
+    if (!p || !(p.tecnicos || []).some(function (t) { return mismoNombre(t, nombre); })) return;
+    const e = Math.max(Number(p.horaEnlace) || 0, Number(p.fin) || 0);
+    if (e > fin) fin = e;
+  });
+  return fin;
+}
+function minutoRecordatorio(partesDelDia, nombre) {
+  return Math.min(finJornadaMin(partesDelDia, nombre) + ESPERA_RECORDATORIO_MIN, TOPE_RECORDATORIO_MIN);
+}
+// ¿Hay que mandar ahora el recordatorio de este técnico? (una sola vez al día: yaAvisado lo lleva el servidor)
+function debeRecordarHoras(u, fecha, diaSemana, hayRegistro, partesDelDia, ahoraMin, yaAvisado) {
+  if (yaAvisado) return false;
+  if (!faltaRegistroHoras(u, fecha, diaSemana, hayRegistro)) return false;
+  return ahoraMin >= minutoRecordatorio(partesDelDia, u.nombre);
+}
+
 // ---- Avisos al TECNICO por lo demas que le sale en su panel de avisos de la app ----
 // Su solicitud de reabrir una orden fue rechazada por el administrador (solo cuando pasa a rechazada).
 function avisoTecnicoRechazo(antes, despues) {
@@ -127,6 +153,7 @@ function avisoTecnicoTareaComentada(antes, despues) {
 module.exports = {
   avisoTecnicoRechazo, avisoTecnicoTareaComentada,
   esFestivoNacional, idRegistroHoras, faltaRegistroHoras, avisoRegistroHoras,
+  finJornadaMin, minutoRecordatorio, debeRecordarHoras,
   incidenciaSinIniciar, tareaSinIniciar, avisarIncidencia, avisarTarea,
   avisoAdminIncidencia, avisoAdminTarea, avisoAdminNotificacion, avisoAdminMaterial,
   parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, MIN_SIN_GUARDAR_MS
