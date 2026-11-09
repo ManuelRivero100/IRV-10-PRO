@@ -170,6 +170,8 @@ function buscarPorOrden(val){
   var box=$('acOrden');
   box.classList.remove('show'); box.innerHTML='';
   if(!val || val.trim().length<6) return;
+  // Editando un parte guardado no se ofrecen órdenes existentes: "Editar" nunca debe convertirse en crear otro parte
+  if(_editIdx!==null && _editIdx!==undefined) return;
   var esTecnico=window._sesion && window._sesion.rol==='tecnico';
   var esTecnicoPuro=esTecnico && !window._sesion.multiRol;
   var miNombre=esTecnico?window._sesion.nombre.toLowerCase():null;

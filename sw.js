@@ -41,20 +41,33 @@ self.addEventListener('fetch', function(e){
   if(req.method !== 'GET') return;
   var url = new URL(req.url);
 
-  // Abrir la app: siempre la ultima version si hay internet; sin internet, la guardada.
+  // Abrir la app: siempre la ultima version si hay internet; sin internet, la guardada. Si la red no responde en 4 s (por ejemplo datos o
+  // Wi-Fi conectados pero sin internet real: el fallo no es inmediato como en modo avion y la app se quedaba esperando), se abre la copia
+  // guardada; si la peticion llega mas tarde, deja guardada la version nueva para la proxima vez.
   if(req.mode === 'navigate'){
     var conCb = req.url + (req.url.indexOf('?') >= 0 ? '&' : '?') + '_sw=' + Date.now();
-    e.respondWith(
+    var guardada = function(){
+      return caches.match(req).then(function(r){
+        return r || caches.match('./index.html').then(function(x){ return x || caches.match('./'); });
+      });
+    };
+    e.respondWith(new Promise(function(resolve){
+      var resuelto = false;
+      var temporizador = setTimeout(function(){
+        guardada().then(function(r){ if(r && !resuelto){ resuelto = true; resolve(r); } });
+      }, 4000);
       fetch(conCb, {cache: 'no-store'}).then(function(r){
-        var copia = r.clone();
-        caches.open(CACHE).then(function(c){ c.put(req, copia); });
-        return r;
+        if(r.ok){
+          var copia = r.clone();
+          caches.open(CACHE).then(function(c){ c.put(req, copia); });
+        }
+        if(!resuelto){ resuelto = true; clearTimeout(temporizador); resolve(r); }
       }).catch(function(){
-        return caches.match(req).then(function(r){
-          return r || caches.match('./index.html').then(function(x){ return x || caches.match('./'); });
-        });
-      })
-    );
+        clearTimeout(temporizador);
+        if(resuelto) return;
+        guardada().then(function(r){ resuelto = true; resolve(r || Response.error()); });
+      });
+    }));
     return;
   }
 

@@ -757,3 +757,193 @@ function resetAE(){
   aeData=null;
 }
 
+
+// ===== CAMBIO DEL NÚMERO DE ORDEN (solo administrador, editando el PRIMER parte de la orden) =====
+// El número de orden forma parte del identificador de la orden y de cada uno de sus partes, así que no se puede editar el campo sin más:
+// se crean los documentos con el número nuevo y se borran los viejos, todo en UNA sola operación (si algo falla no cambia nada), con una
+// copia previa en la papelera. Se cambia en: la orden, sus partes (campo, identificador, hoja de resumen y texto pegado), los partes de OTRAS
+// órdenes que enlazan con esta (enlaceOrigenPedido), los partes sin guardar y los avisos de solape. El cambio queda anotado en
+// config/renombresOrden para que cada móvil corrija también su copia local al sincronizar (si no, el móvil podría volver a subir el número viejo).
+function _escRegDisp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function _reemplazaNumDisp(txt, viejo, nuevo){
+  if(typeof txt!=='string' || !txt) return txt;
+  var re=new RegExp('(^|[^A-Za-z0-9.,])'+_escRegDisp(viejo)+'(?![A-Za-z0-9]|[.,][0-9])','g');
+  return txt.replace(re, function(m,p){ return p+nuevo; });
+}
+// Copia del parte con el número de ESTA orden cambiado en todos sus campos
+function _renombrarDatosParteDisp(d, viejo, nuevo){
+  var o=Object.assign({}, d);
+  if(o.pedido===viejo) o.pedido=nuevo;
+  if(o.actObras===viejo) o.actObras=nuevo;
+  if(typeof o.detalle==='string') o.detalle=_reemplazaNumDisp(o.detalle, viejo, nuevo);
+  if(typeof o.raw==='string') o.raw=_reemplazaNumDisp(o.raw, viejo, nuevo);
+  var en=o.entrada;
+  if(en && typeof en==='object'){
+    if(en.pedido===viejo){ en=Object.assign({}, en); en.pedido=nuevo; o.entrada=en; }
+  } else if(typeof en==='string'){
+    try { var j=JSON.parse(en); if(j && j.pedido===viejo){ j.pedido=nuevo; o.entrada=JSON.stringify(j); } } catch(e){ _fallo('_renombrarDatosParteDisp')(e); }
+  }
+  return o;
+}
+function _idParteConPedidoDisp(p, pedido){ return ((p.clienteId||'mercadona')+'_'+p.fecha+'_'+p.centro+'_'+pedido).replace(/[\/\s]/g,'-'); }
+// ¿Es el parte h[idx] el primero de su orden? Primero = fecha más antigua; si coinciden, hora de llegada, nº de parte y posición.
+function _esPrimerParteDeOrdenDisp(idx, h){
+  var r=h[idx]; if(!r) return false;
+  var cid=r.clienteId||'mercadona';
+  var serie=[];
+  h.forEach(function(x,i){ if(x.pedido===r.pedido && x.centro===r.centro && (x.clienteId||'mercadona')===cid) serie.push({x:x,i:i}); });
+  serie.sort(function(a,b){
+    return String(a.x.fecha||'').localeCompare(String(b.x.fecha||'')) || String(a.x.arr||'').localeCompare(String(b.x.arr||'')) ||
+           String(a.x.numParte||'').localeCompare(String(b.x.numParte||'')) || (a.i-b.i);
+  });
+  return !!serie.length && serie[0].i===idx;
+}
+
+// Hace el cambio. alTerminar(true, "texto") o alTerminar(false, "motivo"). Si falla algo ANTES de escribir, no se toca nada; la escritura
+// es un único lote atómico.
+function _renombrarOrden(cid, centro, viejo, nuevo, alTerminar){
+  function fin(ok, t){ if(alTerminar) alTerminar(ok, t); }
+  if(typeof _db==='undefined' || !_db || !window._sesion || !_esAdmin()){ fin(false,'Solo un administrador con conexión puede cambiar el número.'); return; }
+  var delCliente=function(d){ return ((d.clienteId||'mercadona')===cid); };
+  Promise.all([
+    _db.collection('incidencias').where('pedido','==',viejo).where('centro','==',centro).get(),
+    _db.collection('partes').where('pedido','==',viejo).where('centro','==',centro).get(),
+    _db.collection('incidencias').where('pedido','==',nuevo).where('centro','==',centro).get(),
+    _db.collection('partes').where('pedido','==',nuevo).where('centro','==',centro).get(),
+    _db.collection('incidencias').doc(incidenciaId(centro,nuevo)).get(),
+    _db.collection('partes').where('enlaceOrigenPedido','==',viejo).get(),
+    _db.collection('partesSinGuardar').get(),
+    _db.collection('notificacionesTecnico').get()
+  ]).then(function(r){
+    var incV=r[0].docs.filter(function(x){ return delCliente(x.data()); });
+    var parV=r[1].docs.filter(function(x){ return delCliente(x.data()); });
+    if(!incV.length && !parV.length){ fin(false,'No se encontró la orden '+viejo+' (centro '+centro+').'); return; }
+    // El número nuevo no puede existir ya en ese centro
+    var choque=r[2].docs.filter(function(x){ return delCliente(x.data()); }).length || r[3].docs.filter(function(x){ return delCliente(x.data()); }).length || r[4].exists;
+    if(choque){ fin(false,'Ya existe una orden '+nuevo+' en el centro '+centro+'. No se ha cambiado nada.'); return; }
+
+    var ahora=Date.now(), quien=(window._sesion&&window._sesion.nombre)||'';
+    var razon='Cambio de nº de orden '+viejo+' → '+nuevo;
+    var op=[];   // {tipo:'set'|'delete'|'update', ref, data}
+    var copias=[]; // [coleccion, docOriginal]
+    var mapaIdPartes={};  // id viejo -> id nuevo (para los avisos de solape)
+    var hecho={};         // evita tocar dos veces el mismo documento
+
+    incV.forEach(function(x){
+      var d=x.data(), nid=(x.id===incidenciaId(centro,viejo))?incidenciaId(centro,nuevo):x.id;
+      var nd=Object.assign({}, d, {pedido:nuevo}, _marcaModificacion(razon));
+      copias.push(['incidencias',x]); hecho['incidencias/'+x.id]=1;
+      if(nid===x.id) op.push({tipo:'set', ref:_db.collection('incidencias').doc(nid), data:nd});
+      else { op.push({tipo:'set', ref:_db.collection('incidencias').doc(nid), data:nd}); op.push({tipo:'delete', ref:x.ref}); }
+    });
+    parV.forEach(function(x){
+      var d=x.data(), nid=(x.id===_idParteConPedidoDisp(d,viejo))?_idParteConPedidoDisp(d,nuevo):x.id;
+      var nd=_renombrarDatosParteDisp(d, viejo, nuevo);
+      nd.fechaModificacion=ahora; nd.ultimaModificacionRazon=razon;
+      mapaIdPartes[x.id]=nid; copias.push(['partes',x]); hecho['partes/'+x.id]=1;
+      op.push({tipo:'set', ref:_db.collection('partes').doc(nid), data:nd});
+      if(nid!==x.id) op.push({tipo:'delete', ref:x.ref});
+    });
+    // Partes de OTRAS órdenes que enlazan con esta (solo cambia el número al que apuntan)
+    r[5].docs.forEach(function(x){
+      var d=x.data();
+      if(hecho['partes/'+x.id] || d.enlaceOrigenCentro!==centro) return;
+      copias.push(['partes',x]); hecho['partes/'+x.id]=1;
+      op.push({tipo:'update', ref:x.ref, data:{enlaceOrigenPedido:nuevo, fechaModificacion:ahora, ultimaModificacionRazon:razon}});
+    });
+    // Partes generados y aún sin guardar
+    r[6].docs.forEach(function(x){
+      var d=x.data();
+      if(d.pedido!==viejo || d.centro!==centro || !delCliente(d)) return;
+      var nid=(x.id===_idParteConPedidoDisp(d,viejo))?_idParteConPedidoDisp(d,nuevo):x.id;
+      copias.push(['partesSinGuardar',x]);
+      op.push({tipo:'set', ref:_db.collection('partesSinGuardar').doc(nid), data:_renombrarDatosParteDisp(d,viejo,nuevo)});
+      if(nid!==x.id) op.push({tipo:'delete', ref:x.ref});
+    });
+    // Avisos de solape que mencionan esta orden
+    r[7].docs.forEach(function(x){
+      var d=x.data();
+      if(!d.partes || !d.partes.some(function(p){ return p.pedido===viejo && p.centro===centro; })) return;
+      var np=d.partes.map(function(p){
+        var q=Object.assign({}, p);
+        if(mapaIdPartes[p.id]) q.id=mapaIdPartes[p.id];
+        if(p.pedido===viejo && p.centro===centro) q.pedido=nuevo;
+        return q;
+      });
+      var nid=(x.id.indexOf('solape_')===0)?('solape_'+np.map(function(p){ return p.id; }).sort().join('__')):x.id;
+      copias.push(['notificacionesTecnico',x]);
+      op.push({tipo:'set', ref:_db.collection('notificacionesTecnico').doc(nid), data:Object.assign({}, d, {partes:np})});
+      if(nid!==x.id) op.push({tipo:'delete', ref:x.ref});
+    });
+
+    var total=op.length+copias.length+1;
+    if(total>450){ fin(false,'La orden tiene demasiados documentos ('+total+') para cambiarla de una vez. No se ha cambiado nada.'); return; }
+
+    var batch=_db.batch();
+    // 1) copia de lo que se va a cambiar o borrar. Los documentos que se BORRAN se guardan con el nombre normal de la papelera
+    //    (coleccion__id), igual que _moverAPapelera: así la copia instantánea a la app nueva sabe que fue un borrado explícito y
+    //    borra también allí el documento viejo (si no, en la nueva quedaría el número viejo junto al nuevo).
+    var _borrados={}; op.forEach(function(o){ if(o.tipo==='delete') _borrados[o.ref.path]=1; });
+    copias.forEach(function(c){
+      var _idPap=_borrados[c[1].ref.path] ? (c[0]+'__'+c[1].id) : ('renombre-'+ahora+'__'+c[0]+'__'+c[1].id);
+      batch.set(_db.collection('papelera').doc(_idPap), {
+        coleccionOriginal:c[0], docIdOriginal:c[1].id, datos:c[1].data(), eliminadoPor:quien, eliminadoFecha:ahora, eliminadoRazon:razon
+      });
+    });
+    // 2) los cambios
+    op.forEach(function(o){
+      if(o.tipo==='set') batch.set(o.ref, o.data);
+      else if(o.tipo==='update') batch.update(o.ref, o.data);
+      else batch.delete(o.ref);
+    });
+    // 3) anotación para que cada móvil corrija su copia local
+    var entrada={de:viejo, a:nuevo, centro:centro, clienteId:cid, ts:ahora, por:quien};
+    batch.set(_db.collection('config').doc('renombresOrden'), {lista:firebase.firestore.FieldValue.arrayUnion(entrada)}, {merge:true});
+    return batch.commit().then(function(){
+      _aplicarRenombreLocal(entrada);
+      try { localStorage.setItem('pm_renombres_ts', String(ahora)); } catch(e){ _fallo('_renombrarOrden')(e); }
+      if(typeof _sincronizarRegistroGlobal==='function') _sincronizarRegistroGlobal();
+      fin(true,'Orden cambiada a '+nuevo+' ('+parV.length+' parte'+(parV.length===1?'':'s')+').');
+    });
+  }).catch(function(e){
+    _fallo('_renombrarOrden')(e);
+    fin(false,'No se pudo cambiar el número ('+((e&&e.code)||'error')+'). No se ha modificado nada.');
+  });
+}
+
+// Corrige la copia local (este móvil) de una orden cambiada: partes guardados, estados y banderas pendientes. Un parte local más nuevo que
+// el cambio no se toca (podría ser una orden distinta que reutiliza el número viejo).
+function _aplicarRenombreLocal(e){
+  try {
+    var h=getH(), cambiado=false;
+    h.forEach(function(r,i){
+      if((r.clienteId||'mercadona')!==e.clienteId) return;
+      var fm=r._fm||r.fechaModificacion||0;
+      if(r.pedido===e.de && r.centro===e.centro && fm<=e.ts){
+        var _flags={_fm:r._fm, _pendienteSync:r._pendienteSync, _pendienteIncidencia:r._pendienteIncidencia};
+        var nr=_renombrarDatosParteDisp(r, e.de, e.a);
+        Object.keys(_flags).forEach(function(k){ if(_flags[k]===undefined) delete nr[k]; else nr[k]=_flags[k]; });
+        h[i]=nr; cambiado=true;
+      } else if(r.enlaceOrigenPedido===e.de && r.enlaceOrigenCentro===e.centro){
+        r.enlaceOrigenPedido=e.a; cambiado=true;
+      }
+    });
+    if(cambiado) setH(h);
+    var est=JSON.parse(localStorage.getItem('pm_incidencias_estados')||'{}');
+    var kv=(e.de||'')+'||'+(e.centro||'');
+    if(est[kv]!==undefined){ est[(e.a||'')+'||'+(e.centro||'')]=est[kv]; delete est[kv]; localStorage.setItem('pm_incidencias_estados', JSON.stringify(est)); }
+  } catch(x){ _fallo('_aplicarRenombreLocal')(x); }
+}
+// Cada móvil aplica, antes de sincronizar y de reenviar partes pendientes, los cambios de número hechos desde que sincronizó por última vez.
+function _aplicarRenombresPendientes(cb){
+  if(typeof _db==='undefined' || !_db || !window._sesion){ if(cb) cb(); return; }
+  _db.collection('config').doc('renombresOrden').get().then(function(doc){
+    var lista=(doc.exists && doc.data().lista) || [];
+    var desde=+localStorage.getItem('pm_renombres_ts')||0, max=desde;
+    lista.filter(function(e){ return e.ts>desde; }).sort(function(a,b){ return a.ts-b.ts; }).forEach(function(e){
+      _aplicarRenombreLocal(e); if(e.ts>max) max=e.ts;
+    });
+    if(max>desde) localStorage.setItem('pm_renombres_ts', String(max));
+  }).catch(_fallo('_aplicarRenombresPendientes')).then(function(){ if(cb) cb(); });
+}
+

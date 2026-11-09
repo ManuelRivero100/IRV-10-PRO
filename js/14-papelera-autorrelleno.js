@@ -142,6 +142,13 @@ function _bloquearCamposIdentidadParte(){
   var camposIdentidad = esAdmin
     ? ['fecha','pedido','centro','tienda','dir','tel']
     : ['fecha','pedido','centro','tienda','dir','tel','numParte'];
+  // El nº de orden solo lo puede cambiar el administrador, y solo desde el PRIMER parte de la orden: al guardar, la app pregunta y cambia
+  // el número en todos los partes de esa incidencia (ver _finalizarGuardado y _renombrarOrden). En los demás partes sigue bloqueado.
+  window._editEsPrimero = !!(esAdmin && _editIdx!==null && _editIdx!==undefined && _esPrimerParteDeOrdenDisp(_editIdx, getH()));
+  if(window._editEsPrimero){
+    camposIdentidad = camposIdentidad.filter(function(id){ return id!=='pedido'; });
+    var _pe=$('pedido'); if(_pe) _pe.title='Primer parte de la orden: si cambias este número, cambia en todos los partes de la orden (se pedirá confirmación).';
+  }
   camposIdentidad.forEach(function(id){
     var el=$(id);
     if(el){ el.readOnly=true; el.style.background='var(--surface2)'; el.style.color='var(--text2)'; }
@@ -151,6 +158,8 @@ function _bloquearCamposIdentidadParte(){
   });
 }
 function _desbloquearCamposIdentidadParte(){
+  window._editEsPrimero=false;
+  var _pe0=$('pedido'); if(_pe0) _pe0.removeAttribute('title');
   ['fecha','pedido','centro','tienda','dir','tel','numParte'].forEach(function(id){
     var el=$(id);
     if(el){ el.readOnly=false; el.style.background=''; el.style.color=''; }

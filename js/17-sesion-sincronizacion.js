@@ -675,7 +675,11 @@ function _quitarPartesBorradosDelServidor(snap, h) {
   return h.filter(function(r){ return sobran.indexOf(r) < 0; });
 }
 
+// Antes de bajar los partes se corrigen los cambios de nº de orden pendientes en este móvil (ver _aplicarRenombresPendientes)
 function _sincronizarPartesDesdeFirestore(soloTecnico, callback) {
+  _aplicarRenombresPendientes(function(){ _sincronizarPartesDesdeFirestoreBase(soloTecnico, callback); });
+}
+function _sincronizarPartesDesdeFirestoreBase(soloTecnico, callback) {
   if (typeof _db === 'undefined' || !_db) { if(callback) callback(); return; }
 
   function _procesarSnap(snap, h) {

@@ -442,6 +442,10 @@ function _subirParteAFirestore(parte, razon){
 
 function _reintentarPartesPendientes(){
   if(typeof _db === 'undefined' || !_db || !window._sesion) return;
+  _aplicarRenombresPendientes(_reintentarPartesPendientesBase);
+}
+function _reintentarPartesPendientesBase(){
+  if(typeof _db === 'undefined' || !_db || !window._sesion) return;
   var h=getH();
   var pendientes=h.filter(function(r){ return r._pendienteSync; });
   pendientes.forEach(function(r){ _subirParteAFirestore(r,'Reintento tras fallo de conexión'); });
@@ -482,6 +486,23 @@ function _finalizarGuardado(estado){
   }
   if(_editIdx!==null){
     var orig=h[_editIdx];
+    // Si el administrador cambia el nº de orden al editar un parte (mismo centro y cliente), el cambio afecta a TODA la serie de partes de
+    // la incidencia: se pregunta antes y se cambia todo de una vez (ver _renombrarOrden). Si el número nuevo ya pertenece a otra orden de
+    // ese centro, no se toca la serie: el parte solo pasa a esa otra orden, como siempre.
+    if(orig && !window._renombreHecho && window._editEsPrimero===true && _esAdmin() && orig.pedido && r.pedido && orig.pedido!==r.pedido
+       && orig.centro===r.centro && (orig.clienteId||'mercadona')===(r.clienteId||'mercadona')
+       && !h.some(function(x){ return x.pedido===r.pedido && x.centro===r.centro && (x.clienteId||'mercadona')===(r.clienteId||'mercadona'); })){
+      var _cidSerie=orig.clienteId||'mercadona';
+      var _nSerie=h.filter(function(x){ return x.pedido===orig.pedido && x.centro===orig.centro && (x.clienteId||'mercadona')===_cidSerie; }).length;
+      _confirmarApp('Has cambiado el nº de orden de '+orig.pedido+' a '+r.pedido+'.\nSe cambiará en toda la serie: '+_nSerie+' parte'+(_nSerie===1?'':'s')+' de esta orden y todo lo relacionado (antes se guarda una copia).\n¿Continuar?', function(){
+        _renombrarOrden(_cidSerie, orig.centro, orig.pedido, r.pedido, function(ok, texto){
+          if(!ok){ showMsg('msgRes', (texto||'No se pudo cambiar el número.')+' No se ha guardado nada.', 'warn'); return; }
+          window._renombreHecho=true;
+          try { _finalizarGuardado(estado); } finally { window._renombreHecho=false; }
+        });
+      }, function(){ showMsg('msgRes','No se guardó: el nº de orden no se ha cambiado.','warn'); });
+      return;
+    }
     // Editando un parte existente: se sustituye siempre por completo, cambie lo que cambie
     h[_editIdx]=r; setH(h);
     // Si cambió fecha/pedido/centro, el ID del documento en Firestore también cambia —
