@@ -380,6 +380,7 @@ function _aplicarSesion(nombre, rol, multiRol) {
     renderHistTecBtns();
     catActualizarBadge();
     actualizarBadgeTareas();
+    setTimeout(horasRevisarFaltaHoy, 1500); // si falta el registro de horas de hoy y ya es la hora, aviso dentro de la app
   }
   _ocultarSplashPendiente = _ocultarSplashSiListo;
   var _syncPartesYaResuelto = false;

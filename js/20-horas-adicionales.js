@@ -223,12 +223,26 @@ function horasPintarDieta(){
   $('hDietaInfo').textContent=t;
 }
 
+// Premarcado del lugar en un día SIN registro: solo la tienda y el número de la tienda (centro) de los partes de ese día del técnico (si hay
+// varios, separados por coma). Si el nombre de la tienda ya lleva el número, no se repite. El técnico lo completa y lo corrige; no se
+// premarca nada más (ni horas ni comentario).
+var _horasLugarSugerido='';
+function horasLugarSugerido(nombre, fecha){
+  var vistos={}, l=[];
+  _horasPartesDia(nombre, fecha).forEach(function(p){
+    var t=String(p.tienda||'').trim(), c=String(p.centro||'').trim();
+    var txt=(c && t.indexOf(c)<0) ? (t+' '+c).trim() : t;
+    if(txt && !vistos[txt]){ vistos[txt]=1; l.push(txt); }
+  });
+  return l.join(', ');
+}
 function horasCargarDia(){
   var nombre=window._sesion ? window._sesion.nombre : '';
   var reg=_horasGet()[horasId(nombre, $('hFecha').value)];
+  _horasLugarSugerido = reg ? '' : horasLugarSugerido(nombre, $('hFecha').value);
   $('hInicio').value=reg ? reg.inicio : '';
   $('hFin').value=reg ? reg.fin : '';
-  $('hLugar').value=reg ? reg.lugar : '';
+  $('hLugar').value=reg ? reg.lugar : _horasLugarSugerido;
   _horasFestivoManual=!!(reg && reg.festivoManual);
   $('hDieta').checked=reg ? !!reg.dieta : horasDietaAnterior();
   horasPintarTipo();
@@ -294,6 +308,62 @@ function horasReintentar(){
 window.addEventListener('online', horasReintentar);
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') horasReintentar(); });
 
+// ===== Aviso dentro de la app: falta el registro de horas de hoy =====
+// No depende de los avisos del móvil (Chrome o Android pueden silenciarlos): si el técnico abre la app pasada la hora del recordatorio y no
+// tiene el registro de hoy, sale un cuadro. Misma regla que el recordatorio del servidor: una hora después de lo último de la jornada
+// (16:00 si no hay partes; si un parte acaba más tarde, su fin con el viaje de vuelta), con tope a las 23:45; solo lunes a viernes, sin
+// festivos nacionales y para técnicos con fecha de alta. Como mucho una vez cada 2 horas, y nunca mientras está rellenando sus horas.
+function _horasMinRecordatorio(nombre, fecha){
+  var fin=960;
+  _horasPartesDia(nombre, fecha).forEach(function(p){ var e=Math.max(+p.horaEnlace||0, +p.fin||0); if(e>fin) fin=e; });
+  return Math.min(fin+60, 23*60+45);
+}
+function _horasEsFestivoNac(fecha){ return FF.indexOf(fecha)>=0 || FN.indexOf(String(fecha).slice(5))>=0; }
+function _dlgHorasFalta(){
+  var d=$('dlgHorasFalta');
+  if(!d){
+    d=document.createElement('div'); d.className='dialogo'; d.id='dlgHorasFalta';
+    d.innerHTML='<div class="dialogo-box"><div class="dialogo-titulo">&#9200; Registro de horas</div>'
+      +'<div class="dialogo-sub" style="margin-bottom:16px;">A&uacute;n no has llenado tu registro de horas de hoy.</div>'
+      +'<div class="brow" style="margin-bottom:10px;"><button class="btn btn-p" style="flex:1;justify-content:center" onclick="horasFaltaLlenar()">&#9998; Llenar ahora</button></div>'
+      +'<div class="brow"><button class="btn btn-s" style="flex:1;justify-content:center" onclick="document.getElementById(\'dlgHorasFalta\').classList.remove(\'show\')">M&aacute;s tarde</button></div></div>';
+    document.body.appendChild(d);
+  }
+  return d;
+}
+function horasFaltaLlenar(){
+  var d=$('dlgHorasFalta'); if(d) d.classList.remove('show');
+  abrirHoras(); horasMostrar('hoy');
+}
+function horasRevisarFaltaHoy(){
+  try {
+    var s=window._sesion; if(!s || s.rol!=='tecnico' || document.visibilityState==='hidden') return;
+    var fecha=hoy(), ahora=new Date(), dow=ahora.getDay();
+    if(dow<1 || dow>5 || _horasEsFestivoNac(fecha)) return;
+    var tec=(getTecnicos()||[]).find(function(t){ return String(t.nombre).toLowerCase()===String(s.nombre).toLowerCase(); });
+    if(!tec || tec.activo===false || !tec.activoDesde || fecha<tec.activoDesde) return;
+    if(ahora.getHours()*60+ahora.getMinutes() < _horasMinRecordatorio(s.nombre, fecha)) return;
+    var id=horasId(s.nombre, fecha);
+    if(_horasGet()[id]) return;
+    var win=$('w-horas'); if(win && win.classList.contains('active') && _horasVista==='hoy') return;
+    var ult=JSON.parse(localStorage.getItem('pm_aviso_horas_falta')||'{}');
+    if(ult.fecha===fecha && ahora.getTime()-(ult.ts||0) < 2*3600*1000) return;
+    var mostrar=function(){
+      localStorage.setItem('pm_aviso_horas_falta', JSON.stringify({fecha:fecha, ts:Date.now()}));
+      _dlgHorasFalta().classList.add('show');
+    };
+    // Con conexión se confirma antes en el servidor (puede haberlo llenado en otro móvil); sin conexión se decide con lo que hay en este.
+    if(typeof _db!=='undefined' && _db && navigator.onLine!==false){
+      _db.collection('horasAdicionales').doc(id).get().then(function(doc){
+        if(doc.exists){ var t=_horasGet(); t[id]=Object.assign({id:id}, doc.data()); _horasSet(t); return; }
+        mostrar();
+      }).catch(function(){ mostrar(); });
+    } else mostrar();
+  } catch(e){ _fallo('horasRevisarFaltaHoy')(e); }
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') setTimeout(horasRevisarFaltaHoy, 1500); });
+setInterval(horasRevisarFaltaHoy, 15*60*1000);
+
 // Solo añade lo que falta en local: nunca pisa un registro que este teléfono ya tiene.
 function horasTraer(){
   if(typeof _db==='undefined' || !_db || !window._sesion) return;
@@ -311,7 +381,8 @@ function horasRefrescarDia(){
   if(!win || !win.classList.contains('active') || !window._sesion) return;
   if(_horasVista==='hist'){ horasRenderHist(); return; }
   if(_horasVista!=='hoy') return;
-  var vacio=!$('hInicio').value && !$('hFin').value && !($('hLugar').value||'').trim();
+  var _lug=($('hLugar').value||'').trim();
+  var vacio=!$('hInicio').value && !$('hFin').value && (!_lug || _lug===_horasLugarSugerido); // el premarcado sin tocar cuenta como vacío
   if(vacio) horasCargarDia();
   else horasPintarNotas(_horasGet()[horasId(window._sesion.nombre, $('hFecha').value)]);
 }
