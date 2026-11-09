@@ -50,11 +50,14 @@ function horasCalcular(fecha, inicio, fin, festivoManual){
   return {tipoDia:td, totalMin:total, adicionalesMin:adic, desglose:r};
 }
 
+// Horas en fracciones (2h 1/2, 3/4h...), igual que en los partes y en el resumen de horas. Si los minutos no son cuartos exactos
+// (por ejemplo 2 h 10 min) se muestran en minutos, para no redondear ni perder nada.
 function horasFmt(min){
-  if(min<=0) return '0 h';
+  if(min<=0) return '0h';
+  if(min%15===0) return fmtH(min/60);
   var h=Math.floor(min/60), m=min%60;
   if(h===0) return m+' min';
-  return m ? (h+' h '+('0'+m).slice(-2)+' min') : (h+' h');
+  return h+' h '+('0'+m).slice(-2)+' min';
 }
 function horasDesgloseTxt(d){
   var p=[];
