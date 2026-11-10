@@ -39,6 +39,12 @@ function _pushCerrarAvisos(){
   navigator.serviceWorker.ready.then(function(reg){ return reg.getNotifications(); })
     .then(function(lista){ lista.forEach(function(n){ n.close(); }); }).catch(function(){});
 }
+// Los avisos de la barra se cierran SOLO cuando el tecnico vuelve a la app desde fuera (entonces ya los ha visto): al abrirla y cada vez que
+// pasa de oculta a visible. Un aviso que llega con la app abierta se queda en la barra hasta que lo toque o lo quite.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && _pushSoportado() && Notification.permission === 'granted') _pushCerrarAvisos();
+});
+if(document.visibilityState === 'visible' && _pushSoportado() && Notification.permission === 'granted') _pushCerrarAvisos();
 // Se llama cada vez que el técnico (con asignaciones) ve su inicio: muestra el botón para activar los avisos si hace falta, o deja la
 // suscripción guardada al día si ya están activados.
 function _pushRefrescar(nombre){
@@ -57,8 +63,7 @@ function _pushRefrescar(nombre){
     if(Notification.permission === 'granted' && sub){
       _pushTarjeta('');
       _pushGuardar(sub, _pushNombre).catch(_fallo('_pushGuardar dispositivosPush.set'));
-      _pushCerrarAvisos();
-      return;
+      return; // los avisos de la barra ya NO se cierran aqui (esto se ejecuta en cada redibujado de la pantalla de inicio)
     }
     _pushTarjeta('<p style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Activa los avisos para que te llegue una notificación, y un número en el icono de la app, cuando te asignen una orden o una tarea, aunque la app esté cerrada.</p>'
       + '<button class="btn btn-p btn-full" onclick="_pushActivar()">&#128276; Activar avisos</button>');

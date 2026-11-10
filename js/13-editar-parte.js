@@ -390,6 +390,7 @@ function _marcarPendienteSync(parte, pendiente){
   if(idx<0) return;
   if(pendiente) h[idx]._pendienteSync=true; else delete h[idx]._pendienteSync;
   setH(h);
+  if(typeof _pintarPendientesEnvio==='function') _pintarPendientesEnvio();
 }
 function _marcarIncidenciaPendientePorPedido(pedido, centro){
   var h=getH();
@@ -475,6 +476,31 @@ function _marcarParteBorrarPendiente(docId, razon){
   localStorage.setItem('pm_partes_borrar_pendiente', JSON.stringify(lista));
 }
 
+// ===== Partes pendientes de enviar =====
+// Un parte guardado sin conexión queda en el móvil con la marca _pendienteSync hasta que el servidor lo recibe. Se muestra en la pantalla de
+// inicio para que el técnico sepa que aún no ha llegado, con un botón para enviarlo ya. Además se reintenta solo en cada ciclo del día
+// (también con "wifi sin internet real", donde el móvil no avisa de que vuelve la conexión).
+function _hayPendientesDeEnvio(){
+  try {
+    if(getH().some(function(r){ return r._pendienteSync || r._pendienteIncidencia; })) return true;
+    return JSON.parse(localStorage.getItem('pm_partes_borrar_pendiente')||'[]').length>0;
+  } catch(e){ _fallo('_hayPendientesDeEnvio')(e); return false; }
+}
+function _pintarPendientesEnvio(){
+  var el=document.getElementById('pendientesEnvio'); if(!el) return;
+  var n=0;
+  try { n=getH().filter(function(r){ return r._pendienteSync; }).length; } catch(e){ _fallo('_pintarPendientesEnvio')(e); }
+  if(!n){ el.style.display='none'; el.innerHTML=''; return; }
+  el.innerHTML='<div class="card" style="border-left:4px solid var(--amber);"><div class="card-title">&#9203; Pendiente de enviar</div>'
+    +'<div style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">'+(n===1?'Tienes 1 parte guardado en este m&oacute;vil que a&uacute;n no ha llegado al servidor.':'Tienes '+n+' partes guardados en este m&oacute;vil que a&uacute;n no han llegado al servidor.')+' Se enviar&aacute;n solos en cuanto haya conexi&oacute;n.</div>'
+    +'<button class="btn btn-p btn-full" onclick="_enviarPendientesAhora()">&#128228; Enviar ahora</button></div>';
+  el.style.display='block';
+}
+function _enviarPendientesAhora(){
+  if(typeof _toast==='function') _toast(navigator.onLine===false ? 'Sin conexión: se enviarán al volver el internet.' : 'Enviando…', navigator.onLine===false ? 'var(--red)' : undefined);
+  _reintentarPartesPendientes();
+  setTimeout(_pintarPendientesEnvio, 5000);
+}
 function _finalizarGuardado(estado){
   var r=window.recTmp; if(!r) return;
   r.estado=estado;

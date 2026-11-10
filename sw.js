@@ -3,6 +3,7 @@
 // y los archivos (js/css) de una version nunca se mezclan con los de otra.
 var VERSION = new URL(self.location.href).searchParams.get('v') || 'sin-version';
 var CACHE = 'irv10-' + VERSION;
+var EDAD_MAX_MS = 3 * 24 * 60 * 60 * 1000; // pasada esta edad la version instalada ya no se abre sin preguntar antes a la red
 
 self.addEventListener('install', function(e){
   self.skipWaiting();
@@ -19,6 +20,9 @@ self.addEventListener('install', function(e){
           // Todo o nada: si falta un archivo de codigo, la instalacion falla y sigue la version anterior.
           return Promise.all(archivos.map(function(u){ return c.add(u); })).then(function(){
             return Promise.all(['./manifest.json', './icon.png'].map(function(u){ return c.add(u).catch(function(){}); }));
+          }).then(function(){
+            // Marca de cuando se instalo esta version (la usa la red de seguridad de abrir la app, mas abajo).
+            return c.put('./__instalada', new Response(String(Date.now())));
           });
         });
       });
@@ -41,36 +45,41 @@ self.addEventListener('fetch', function(e){
   if(req.method !== 'GET') return;
   var url = new URL(req.url);
 
-  // Abrir la app: siempre la ultima version si hay internet; sin internet, la guardada. Si la red no responde en 4 s (por ejemplo datos o
-  // Wi-Fi conectados pero sin internet real: el fallo no es inmediato como en modo avion y la app se quedaba esperando), se abre la copia
-  // guardada; si la peticion llega mas tarde, deja guardada la version nueva para la proxima vez.
+  // Abrir la app: SIEMPRE con la version que ya esta instalada en el movil, sin esperar a la red (asi abre al instante aunque haya datos o
+  // Wi-Fi sin internet real). La version nueva se baja en silencio cuando hay internet (la propia app registra el sw.js nuevo, ver
+  // _comprobarVersionNueva en 17-sesion-sincronizacion.js) y se usa la proxima vez que se abra la app, sin que el tecnico lo note.
+  // La copia de la pagina sale SOLO de la cache de esta version, para que la pagina y su codigo sean siempre de la misma version.
+  // Red de seguridad: si no hay copia, o la version instalada tiene mas de 3 dias, se pide la ultima a la red (con limite de 4 s si hay
+  // copia), para no quedarse nunca atascado en una version vieja.
   if(req.mode === 'navigate'){
+    if(!/(\/|\/index\.html)$/.test(url.pathname)) return;
     var conCb = req.url + (req.url.indexOf('?') >= 0 ? '&' : '?') + '_sw=' + Date.now();
-    var guardada = function(){
-      return caches.match(req).then(function(r){
-        return r || caches.match('./index.html').then(function(x){ return x || caches.match('./'); });
-      });
-    };
-    e.respondWith(new Promise(function(resolve){
-      var resuelto = false;
-      var temporizador = setTimeout(function(){
-        guardada().then(function(r){ if(r && !resuelto){ resuelto = true; resolve(r); } });
-      }, 4000);
-      fetch(conCb, {cache: 'no-store'}).then(function(r){
-        if(r.ok){
-          var copia = r.clone();
-          caches.open(CACHE).then(function(c){ c.put(req, copia); });
-        }
-        if(!resuelto){ resuelto = true; clearTimeout(temporizador); resolve(r); }
-      }).catch(function(){
-        clearTimeout(temporizador);
-        if(resuelto) return;
-        guardada().then(function(r){ resuelto = true; resolve(r || Response.error()); });
-      });
-    }));
+    // Una RECARGA (la del cierre diario de las 6:00, donde llega el codigo nuevo) pide primero la ultima version a la red, con limite de 4 s.
+    var esRecarga = (req.cache === 'reload' || req.cache === 'no-cache');
+    e.respondWith(
+      caches.open(CACHE).then(function(c){
+        return Promise.all([
+          c.match('./index.html').then(function(r){ return r || c.match('./'); }),
+          c.match('./__instalada').then(function(m){ return m ? m.text().then(function(t){ return Date.now() - (+t || 0); }) : Infinity; })
+        ]);
+      }).then(function(x){
+        var guardada = x[0], edad = x[1];
+        if(guardada && edad < EDAD_MAX_MS && !esRecarga) return guardada;
+        return new Promise(function(resolve){
+          var resuelto = false;
+          var temporizador = guardada ? setTimeout(function(){ if(!resuelto){ resuelto = true; resolve(guardada); } }, 4000) : null;
+          fetch(conCb, {cache: 'no-store'}).then(function(r){
+            if(!resuelto){ resuelto = true; if(temporizador) clearTimeout(temporizador); resolve(r); }
+          }).catch(function(){
+            if(temporizador) clearTimeout(temporizador);
+            if(resuelto) return;
+            resuelto = true; resolve(guardada || Response.error());
+          });
+        });
+      })
+    );
     return;
   }
-
   // Servicios de otros sitios (Firebase, PDF...): los gestiona el navegador.
   if(url.origin !== self.location.origin) return;
 
