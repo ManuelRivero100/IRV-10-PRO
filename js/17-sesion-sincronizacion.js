@@ -1387,6 +1387,7 @@ function confirmarCambioRol() {
       document.getElementById('dlgCambioRol').classList.remove('show');
       document.getElementById('dlgCambioRolPin').value = '';
       _entrarConRol(sesion.nombre, 'admin', true);
+      if (typeof _ejecutarDestinoAvisoPend === 'function') _ejecutarDestinoAvisoPend(); // si venia de tocar un aviso de administrador
     } else if (r.estado === 'sinConexion') {
       msg.textContent = 'Sin conexión. No se puede entrar como admin sin internet.';
     } else if (r.estado === 'bloqueado') {

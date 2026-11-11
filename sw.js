@@ -110,7 +110,7 @@ self.addEventListener('push', function(e){
     body: d.texto || 'Tienes asignaciones o tareas pendientes.',
     tag: 'aviso-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), // cada aviso queda aparte (con la misma etiqueta cada uno borraba al anterior)
     icon: './icon.png', badge: './icon.png',
-    data: {n: n}
+    data: {n: n, para: d.para === 'admin' || d.para === 'tecnico' ? d.para : '', titulo: String(d.titulo || '')}
   })];
   if(self.navigator && self.navigator.setAppBadge){
     tareas.push((n > 0 ? self.navigator.setAppBadge(n) : self.navigator.setAppBadge()).catch(function(){}));
@@ -122,30 +122,34 @@ self.addEventListener('push', function(e){
 // algunos moviles Android eso responde "hecho" sin traerla al frente, asi que se comprueba medio segundo despues y, si no esta visible, se
 // pide abrir la app (eso si la trae al frente, este abierta o cerrada). Si no hay ninguna ventana (app cerrada) se abre directamente.
 var URL_AVISO = './?aviso=1';
+function _urlAviso(dato){
+  return URL_AVISO + (dato && dato.para ? '&para=' + dato.para : '') + (dato && dato.titulo ? '&t=' + encodeURIComponent(dato.titulo) : '');
+}
 function _hayVentanaVisible(lista){
   for(var i = 0; i < lista.length; i++){ if(lista[i].visibilityState === 'visible') return true; }
   return false;
 }
-function _abrirAppDesdeAviso(){
+function _abrirAppDesdeAviso(dato){
   var opciones = {type: 'window', includeUncontrolled: true};
   return self.clients.matchAll(opciones).then(function(lista){
-    if(!lista.length) return self.clients.openWindow(URL_AVISO);
+    if(!lista.length) return self.clients.openWindow(_urlAviso(dato));
     var c = lista[0];
     for(var i = 0; i < lista.length; i++){ if(lista[i].visibilityState === 'visible' || lista[i].focused){ c = lista[i]; break; } }
     return Promise.resolve().then(function(){ return c.focus(); }).then(function(w){
-      try { (w || c).postMessage({tipo: 'irv-aviso-click'}); } catch(x) {}
+      try { (w || c).postMessage({tipo: 'irv-aviso-click', para: dato.para || '', titulo: dato.titulo || ''}); } catch(x) {}
       return new Promise(function(ok){ setTimeout(ok, 500); }).then(function(){
         return self.clients.matchAll(opciones);
       }).then(function(otra){
-        if(!_hayVentanaVisible(otra)) return self.clients.openWindow(URL_AVISO);
+        if(!_hayVentanaVisible(otra)) return self.clients.openWindow(_urlAviso(dato));
       });
     }, function(){
-      return self.clients.openWindow(URL_AVISO);
+      return self.clients.openWindow(_urlAviso(dato));
     });
   });
 }
 
 self.addEventListener('notificationclick', function(e){
+  var dato = e.notification.data || {};
   e.notification.close();
-  e.waitUntil(_abrirAppDesdeAviso().catch(function(){ return self.clients.openWindow(URL_AVISO); }));
+  e.waitUntil(_abrirAppDesdeAviso(dato).catch(function(){ return self.clients.openWindow(_urlAviso(dato)); }));
 });

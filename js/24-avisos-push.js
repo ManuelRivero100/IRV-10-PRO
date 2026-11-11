@@ -82,21 +82,62 @@ function _pushActivar(){
   }).catch(function(){ _toast('No se pudieron activar los avisos. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
 }
 
-// Al tocar un aviso de la barra, el service worker trae la app al frente y le manda este mensaje (o la abre con ?aviso=1 si estaba cerrada):
-// se lleva al tecnico/administrador al inicio, donde estan sus asignaciones, tareas y avisos. Si esta rellenando un parte no se le mueve de sitio.
-function _irAlInicioPorAviso(){
+// Al tocar un aviso de la barra, el service worker trae la app al frente y le manda este mensaje (o la abre con ?aviso=1&para=...&t=... si
+// estaba cerrada). Cada aviso dice a quien va dirigido: 'tecnico' (le pasa como tecnico) o 'admin' (sale en su panel de administrador).
+//  - Aviso de tecnico: se abre siempre en rol tecnico (si estaba como administrador, pasa a tecnico sin PIN).
+//  - Aviso de administrador: si ya esta como administrador se abre directo; si esta como tecnico se pide el PIN y, al ponerlo, se abre.
+// El destino sale del titulo: tareas -> pantalla de Tareas; registro de horas -> Horas adicionales; lo demas -> inicio (asignaciones y
+// panel de avisos). Si esta rellenando un parte no se le mueve de sitio ni se le pide nada.
+var _avisoDestinoPend = null;
+function _destinoDeAviso(titulo){
+  var t = String(titulo || '');
+  if(/^Registro de horas/i.test(t)) return 'horas';
+  if(/tarea/i.test(t)) return 'tareas';
+  return 'inicio';
+}
+function _abrirDestinoAviso(dest){
   try {
-    if(!window._sesion || !localStorage.getItem('irv_sesion')) return;
-    if(typeof _parteTieneContenidoSinGuardar === 'function' && _parteTieneContenidoSinGuardar()) return;
+    if(dest === 'tareas' && typeof abrirTareas === 'function'){ abrirTareas(); return; }
+    if(dest === 'horas' && typeof abrirHoras === 'function'){ abrirHoras(); return; }
     goTo('w-clientes');
-  } catch(e){ _fallo('_irAlInicioPorAviso')(e); }
+  } catch(e){ _fallo('_abrirDestinoAviso')(e); }
+}
+// Tras cambiar de rol (con o sin PIN) se abre el destino pendiente, si se pidio hace poco
+function _ejecutarDestinoAvisoPend(){
+  var p = _avisoDestinoPend; _avisoDestinoPend = null;
+  if(p && (Date.now() - p.ts) < 180000) setTimeout(function(){ _abrirDestinoAviso(p.dest); }, 300);
+}
+function _irAlAvisoPush(para, titulo){
+  try {
+    var s = window._sesion;
+    if(!s || !localStorage.getItem('irv_sesion')) return;
+    if(typeof _parteTieneContenidoSinGuardar === 'function' && _parteTieneContenidoSinGuardar()) return;
+    var dest = _destinoDeAviso(titulo);
+    if(para === 'admin' && s.rol !== 'admin' && s.multiRol){
+      _avisoDestinoPend = { dest: dest, ts: Date.now() };
+      pedirPinCambioRol();
+      return;
+    }
+    if(para === 'tecnico' && s.rol === 'admin' && s.multiRol){
+      _entrarConRol(s.nombre, 'tecnico', true);
+      _avisoDestinoPend = { dest: dest, ts: Date.now() };
+      _ejecutarDestinoAvisoPend();
+      return;
+    }
+    _abrirDestinoAviso(dest);
+  } catch(e){ _fallo('_irAlAvisoPush')(e); }
 }
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(ev){
-    if(ev.data && ev.data.tipo === 'irv-aviso-click') _irAlInicioPorAviso();
+    if(ev.data && ev.data.tipo === 'irv-aviso-click') _irAlAvisoPush(ev.data.para, ev.data.titulo);
   });
 }
 if(/[?&]aviso=1(&|$)/.test(location.search)){
+  var _avisoQs = location.search;
   try { history.replaceState(null, '', location.pathname); } catch(e){ _fallo('avisoUrl')(e); }
-  setTimeout(_irAlInicioPorAviso, 3500);
+  setTimeout(function(){
+    var mp = /[?&]para=([a-z]+)/.exec(_avisoQs), mt = /[?&]t=([^&]*)/.exec(_avisoQs), tit = '';
+    try { tit = mt ? decodeURIComponent(mt[1]) : ''; } catch(e){ tit = ''; }
+    _irAlAvisoPush(mp ? mp[1] : '', tit);
+  }, 3500);
 }
