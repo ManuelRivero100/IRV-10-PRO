@@ -1,5 +1,7 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
+    // Versión de la app en pequeño en la pantalla de entrada: así se ve qué versión tiene cada móvil
+    var _verApp = document.getElementById('verApp'); if(_verApp) _verApp.textContent = 'Versión ' + String(APP_BUILD_ID).replace(/^build-/, '');
     navigator.serviceWorker.register('sw.js?v=' + APP_BUILD_ID, {updateViaCache: 'none'}).catch(function(err){
       console.warn('SW error:', err);
     });

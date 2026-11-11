@@ -54,8 +54,6 @@ self.addEventListener('fetch', function(e){
   if(req.mode === 'navigate'){
     if(!/(\/|\/index\.html)$/.test(url.pathname)) return;
     var conCb = req.url + (req.url.indexOf('?') >= 0 ? '&' : '?') + '_sw=' + Date.now();
-    // Una RECARGA (la del cierre diario de las 6:00, donde llega el codigo nuevo) pide primero la ultima version a la red, con limite de 4 s.
-    var esRecarga = (req.cache === 'reload' || req.cache === 'no-cache');
     e.respondWith(
       caches.open(CACHE).then(function(c){
         return Promise.all([
@@ -64,7 +62,7 @@ self.addEventListener('fetch', function(e){
         ]);
       }).then(function(x){
         var guardada = x[0], edad = x[1];
-        if(guardada && edad < EDAD_MAX_MS && !esRecarga) return guardada;
+        if(guardada && edad < EDAD_MAX_MS) return guardada;
         return new Promise(function(resolve){
           var resuelto = false;
           var temporizador = guardada ? setTimeout(function(){ if(!resuelto){ resuelto = true; resolve(guardada); } }, 4000) : null;
