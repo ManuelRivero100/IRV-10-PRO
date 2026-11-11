@@ -92,14 +92,28 @@ function guardarTarea(){
   if(!txt){ showMsg('tarMsg','Falta: Cliente / tienda.'); return; }
   if(!tec){ showMsg('tarMsg','Falta: Técnico encargado (toca uno de los botones).'); return; }
   if(!com){ showMsg('tarMsg','Falta: Comentario.'); return; }
-  var s=_tarSel, ts=Date.now();
+  var s=_tarSel, ts=Date.now(), idNueva=_tarCol().doc().id; // la tarea lleva su id desde el principio: enviarla dos veces no la duplica
   var data=Object.assign({
     clienteId:s?s.clienteId:'', cliente:s?s.cliente:'', centro:s?s.centro:'', tienda:s?s.tienda:txt,
     tecnico:tec, estado:'pendiente', creadoPor:window._sesion.nombre, fechaCreacion:ts,
     comentarios:[{texto:com,por:window._sesion.nombre,ts:ts}], vistaAdmin:adm, vistaTecnico:!adm
   }, _marcaModificacion('Tarea creada'));
-  _tarCol().add(data).then(function(){ _toast('Tarea guardada'); abrirTareas(); actualizarBadgeTareas(); })
-    .catch(function(){ showMsg('tarMsg','Error al guardar. Comprueba tu conexión.'); });
+  // Se apunta ANTES de enviar (cola del segundo plano, js/25-cola-envio.js): si el movil se queda sin internet y Android congela o cierra la
+  // app, el service worker la envia cuando vuelva la conexion.
+  if(typeof _colaApuntar==='function'){ _colaApuntar('tareas',{clave:idNueva,op:'crear',id:idNueva,datos:data}); _colaVigilar('tareas',idNueva); }
+  var envio=_tarCol().doc(idNueva).set(data);
+  if(navigator.onLine===false && typeof _colaApuntar==='function'){
+    // Sin conexion: queda guardada en el movil y se envia sola. Se cierra el formulario sin esperar (la confirmacion puede tardar horas).
+    envio.then(function(){ if(typeof _colaConfirmar==='function') _colaConfirmar('tareas',idNueva); }).catch(function(){});
+    _toast('Sin conexión: la tarea queda guardada en el móvil y se enviará sola cuando vuelva el internet.','var(--amber)');
+    $('tarCliente').value=''; $('tarComentario').value=''; $('cardNuevaTarea').style.display='none';
+    return;
+  }
+  envio.then(function(){ if(typeof _colaConfirmar==='function') _colaConfirmar('tareas',idNueva); _toast('Tarea guardada'); abrirTareas(); actualizarBadgeTareas(); })
+    .catch(function(err){
+      if(err && err.code==='permission-denied' && typeof _colaConfirmar==='function') _colaConfirmar('tareas',idNueva); // el servidor la rechaza: no se reintenta
+      showMsg('tarMsg','Error al guardar. Comprueba tu conexión.');
+    });
 }
 // Título como en las asignaciones (el nombre de la tienda); el cliente se antepone solo si el nombre de la tienda no lo incluye.
 function _tarTitulo(d){
@@ -259,10 +273,24 @@ function tarEnviar(id,cerrar){
   if(!txt){ showMsg('tarMsg_'+id,cerrar?'Para dar la tarea por realizada escribe un comentario de cierre.':'Escribe el comentario.'); return; }
   var adm=_tarAdmin(), c={texto:txt,por:window._sesion.nombre,ts:Date.now()};
   if(cerrar) c.cierre=true;
-  var u=Object.assign({comentarios:firebase.firestore.FieldValue.arrayUnion(c), vistaAdmin:adm, vistaTecnico:!adm}, _marcaModificacion(cerrar?'Tarea realizada':'Comentario en tarea'));
-  if(cerrar) Object.assign(u,{estado:'realizada',cerradaPor:c.por,fechaCierre:c.ts});
-  _tarCol().doc(id).update(u).then(function(){ _toast(cerrar?'Tarea realizada':'Comentario añadido'); tarRender(); actualizarBadgeTareas(); })
-    .catch(function(){ showMsg('tarMsg_'+id,'No se pudo guardar. Comprueba tu conexión.'); });
+  var campos=Object.assign({vistaAdmin:adm, vistaTecnico:!adm}, _marcaModificacion(cerrar?'Tarea realizada':'Comentario en tarea'));
+  if(cerrar) Object.assign(campos,{estado:'realizada',cerradaPor:c.por,fechaCierre:c.ts});
+  var u=Object.assign({comentarios:firebase.firestore.FieldValue.arrayUnion(c)}, campos);
+  // Cola del segundo plano (js/25-cola-envio.js): el comentario se anade solo si no estaba, asi que repetir el envio no lo duplica
+  var clave=id+'_'+c.ts;
+  if(typeof _colaApuntar==='function'){ _colaApuntar('tareas',{clave:clave,op:'comentar',id:id,campos:campos,comentario:c}); _colaVigilar('tareas',clave); }
+  var envio=_tarCol().doc(id).update(u);
+  if(navigator.onLine===false && typeof _colaApuntar==='function'){
+    envio.then(function(){ if(typeof _colaConfirmar==='function') _colaConfirmar('tareas',clave); }).catch(function(){});
+    _toast('Sin conexión: el comentario queda guardado en el móvil y se enviará solo cuando vuelva el internet.','var(--amber)');
+    if(t) t.value='';
+    return;
+  }
+  envio.then(function(){ if(typeof _colaConfirmar==='function') _colaConfirmar('tareas',clave); _toast(cerrar?'Tarea realizada':'Comentario añadido'); tarRender(); actualizarBadgeTareas(); })
+    .catch(function(err){
+      if(err && (err.code==='permission-denied' || err.code==='not-found') && typeof _colaConfirmar==='function') _colaConfirmar('tareas',clave); // rechazado o tarea borrada: no se reintenta
+      showMsg('tarMsg_'+id,'No se pudo guardar. Comprueba tu conexión.');
+    });
 }
 
 // ===== AVISOS DEL TÉCNICO SIN CONEXIÓN =====

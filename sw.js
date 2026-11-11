@@ -153,3 +153,116 @@ self.addEventListener('notificationclick', function(e){
   e.notification.close();
   e.waitUntil(_abrirAppDesdeAviso(dato).catch(function(){ return self.clients.openWindow(_urlAviso(dato)); }));
 });
+
+// ===== Envio de partes y tareas pendientes con la app en segundo plano o cerrada (Background Sync) =====
+// La app apunta en IndexedDB ('irv-cola') lo que va a enviar (js/25-cola-envio.js) y pide un "sync". Cuando vuelve internet el navegador
+// despierta este service worker, que envia lo apuntado al servidor por su API REST usando la sesion del tecnico (el "refresh token" que la app
+// guarda con cada envio). Lo enviado se quita de la cola; lo que falle se queda y se reintenta, y ademas la app lo envia ella sola al abrirse.
+// Cada envio escribe siempre sobre el mismo documento, asi que repetirlo no duplica nada.
+var COLA_BD = 'irv-cola';
+function colaAbrir(){
+  return new Promise(function(ok, ko){
+    var r = indexedDB.open(COLA_BD, 1);
+    r.onupgradeneeded = function(){
+      var d = r.result;
+      if(!d.objectStoreNames.contains('partes')) d.createObjectStore('partes', {keyPath: 'clave'});
+      if(!d.objectStoreNames.contains('tareas')) d.createObjectStore('tareas', {keyPath: 'clave'});
+    };
+    r.onsuccess = function(){ ok(r.result); };
+    r.onerror = function(){ ko(r.error); };
+  });
+}
+function colaTodos(db, almacen){
+  return new Promise(function(ok, ko){ var q = db.transaction(almacen, 'readonly').objectStore(almacen).getAll(); q.onsuccess = function(){ ok(q.result); }; q.onerror = function(){ ko(q.error); }; });
+}
+function colaQuitar(db, almacen, clave){
+  return new Promise(function(ok, ko){ var t = db.transaction(almacen, 'readwrite'); t.objectStore(almacen).delete(clave); t.oncomplete = function(){ ok(); }; t.onerror = function(){ ko(t.error); }; });
+}
+// Valores al formato del servidor (API REST de Firestore)
+function colaValor(v){
+  if(v === null) return {nullValue: null};
+  if(typeof v === 'boolean') return {booleanValue: v};
+  if(typeof v === 'number'){ if(!isFinite(v)) return {nullValue: null}; return Number.isInteger(v) ? {integerValue: String(v)} : {doubleValue: v}; }
+  if(typeof v === 'string') return {stringValue: v};
+  if(Array.isArray(v)) return {arrayValue: {values: v.filter(function(x){ return x !== undefined; }).map(colaValor)}};
+  if(typeof v === 'object') return {mapValue: {fields: colaCampos(v)}};
+  return {nullValue: null};
+}
+function colaCampos(o){
+  var f = {};
+  Object.keys(o).forEach(function(k){ if(o[k] !== undefined) f[k] = colaValor(o[k]); });
+  return f;
+}
+function colaRuta(k){ return /^[A-Za-z_][A-Za-z_0-9]*$/.test(k) ? k : '`' + k.replace(/\\/g, '\\\\').replace(/`/g, '\\`') + '`'; }
+// Cambia el "refresh token" de la sesion por un token de acceso valido (uno por sesion y envio)
+function colaToken(ses, cache){
+  if(cache[ses.refreshToken]) return cache[ses.refreshToken];
+  cache[ses.refreshToken] = fetch('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(ses.apiKey), {
+    method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(ses.refreshToken)
+  }).then(function(r){ if(!r.ok) throw new Error('token ' + r.status); return r.json(); }).then(function(j){ return j.id_token; });
+  return cache[ses.refreshToken];
+}
+function colaBase(ses){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(ses.projectId) + '/databases/(default)/documents'; }
+function colaPeticion(url, token, cuerpo, metodo){
+  return fetch(url, {method: metodo, headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify(cuerpo)}).then(function(r){
+    if(r.ok) return r;
+    return r.text().then(function(t){ var e = new Error('firestore ' + r.status + ' ' + t.slice(0, 160)); e.estado = r.status; throw e; });
+  });
+}
+// Parte: se escriben solo los campos que trae (igual que el guardado normal con "merge")
+function colaEnviarParte(it, token){
+  var campos = colaCampos(it.datos);
+  var mascara = Object.keys(campos).map(function(k){ return 'updateMask.fieldPaths=' + encodeURIComponent(colaRuta(k)); }).join('&');
+  return colaPeticion(colaBase(it.ses) + '/partes/' + encodeURIComponent(it.docId) + (mascara ? '?' + mascara : ''), token, {fields: campos}, 'PATCH');
+}
+// Tarea nueva: solo si todavia no existe (si ya existe es que llego, y no se pisa lo que otros hayan comentado despues).
+// Comentario o cierre: cambia sus campos y anade el comentario solo si no estaba (arrayUnion), sobre una tarea que debe existir.
+function colaEnviarTarea(it, token){
+  if(it.op === 'crear') return colaPeticion(colaBase(it.ses) + '/tareasPendientes/' + encodeURIComponent(it.id) + '?currentDocument.exists=false', token, {fields: colaCampos(it.datos)}, 'PATCH');
+  var campos = colaCampos(it.campos);
+  var escritura = {
+    update: {name: 'projects/' + it.ses.projectId + '/databases/(default)/documents/tareasPendientes/' + it.id, fields: campos},
+    updateMask: {fieldPaths: Object.keys(campos).map(colaRuta)},
+    updateTransforms: [{fieldPath: 'comentarios', appendMissingElements: {values: [colaValor(it.comentario)]}}],
+    currentDocument: {exists: true}
+  };
+  return colaPeticion(colaBase(it.ses) + ':commit', token, {writes: [escritura]}, 'POST');
+}
+function colaAvisar(n){
+  if(!n) return Promise.resolve();
+  return self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(l){
+    l.forEach(function(c){ try { c.postMessage({tipo: 'irv-cola-enviada', n: n}); } catch(x) {} });
+  });
+}
+function colaEnviarTodo(){
+  return colaAbrir().then(function(db){
+    return Promise.all([colaTodos(db, 'partes'), colaTodos(db, 'tareas')]).then(function(r){
+      var trabajo = [];
+      r[0].forEach(function(it){ trabajo.push({almacen: 'partes', it: it, enviar: colaEnviarParte}); });
+      r[1].forEach(function(it){ trabajo.push({almacen: 'tareas', it: it, enviar: colaEnviarTarea}); });
+      if(!trabajo.length){ db.close(); return 0; }
+      var cache = {}, enviados = 0, fallos = 0, cadena = Promise.resolve();
+      trabajo.forEach(function(w){
+        cadena = cadena.then(function(){
+          if(!w.it.ses || !w.it.ses.refreshToken || !w.it.ses.apiKey || !w.it.ses.projectId){ fallos++; return; } // sin sesion apuntada: lo envia la app al abrirse
+          return colaToken(w.it.ses, cache).then(function(tok){ return w.enviar(w.it, tok); }).then(function(){
+            enviados++; return colaQuitar(db, w.almacen, w.it.clave);
+          }).catch(function(e){
+            var yaEnviada = e && e.estado === 409 && w.almacen === 'tareas' && w.it.op === 'crear';  // ya existia: llego antes
+            var tareaBorrada = e && e.estado === 404 && w.almacen === 'tareas' && w.it.op === 'comentar'; // la tarea ya no existe: no hay donde comentar
+            if(yaEnviada || tareaBorrada){ if(yaEnviada) enviados++; return colaQuitar(db, w.almacen, w.it.clave); }
+            fallos++;
+          });
+        });
+      });
+      return cadena.then(function(){
+        db.close();
+        return colaAvisar(enviados).then(function(){ if(fallos) throw new Error('quedan ' + fallos + ' sin enviar'); return enviados; });
+      });
+    });
+  });
+}
+self.addEventListener('sync', function(e){
+  if(e.tag === 'irv-enviar') e.waitUntil(colaEnviarTodo()); // si falla algo, la promesa rechaza y el navegador vuelve a intentarlo mas tarde
+});

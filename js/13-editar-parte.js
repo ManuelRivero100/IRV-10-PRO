@@ -424,7 +424,11 @@ function _subirParteAFirestore(parte, razon){
     // Se marca pendiente ANTES de subir: sin cobertura la subida no falla, se queda esperando, y si la app se cierra antes de que
     // vuelva la red el parte solo se salva (y se reintenta al volver a entrar) si ya consta como pendiente. Al confirmarse se desmarca.
     _marcarPendienteSync(parte, true);
+    // Cola de envio para el segundo plano (js/25-cola-envio.js): si el movil se queda sin internet y Android congela o cierra la app, el
+    // service worker envia este parte cuando vuelva la conexion.
+    if(typeof _colaApuntar==='function'){ _colaApuntar('partes', {clave:docId, docId:docId, datos:datos}); _colaVigilar('partes', docId); }
     _db.collection('partes').doc(docId).set(datos, {merge:true}).then(function(){
+      if(typeof _colaConfirmar==='function') _colaConfirmar('partes', docId);
       _marcarPendienteSync(parte, false); try{ _revisarSolapeTrasGuardarDisp(parte, razon); }catch(e){}
     }).catch(function(){
       _marcarPendienteSync(parte, true);
@@ -447,6 +451,7 @@ function _reintentarPartesPendientes(){
 }
 function _reintentarPartesPendientesBase(){
   if(typeof _db === 'undefined' || !_db || !window._sesion) return;
+  if(typeof _colaReenviarTareas==='function') _colaReenviarTareas();
   var h=getH();
   var pendientes=h.filter(function(r){ return r._pendienteSync; });
   pendientes.forEach(function(r){ _subirParteAFirestore(r,'Reintento tras fallo de conexión'); });
@@ -471,6 +476,7 @@ function _reintentarPartesPendientesBase(){
 }
 window.addEventListener('online', _reintentarPartesPendientes);
 function _marcarParteBorrarPendiente(docId, razon){
+  if(typeof _colaConfirmar==='function') _colaConfirmar('partes', docId);
   var lista=JSON.parse(localStorage.getItem('pm_partes_borrar_pendiente')||'[]');
   if(!lista.some(function(x){ return (typeof x==='string'?x:x.docId)===docId; })) lista.push({docId:docId, razon:razon||'Borrado pendiente'});
   localStorage.setItem('pm_partes_borrar_pendiente', JSON.stringify(lista));
@@ -483,6 +489,7 @@ function _marcarParteBorrarPendiente(docId, razon){
 function _hayPendientesDeEnvio(){
   try {
     if(getH().some(function(r){ return r._pendienteSync || r._pendienteIncidencia; })) return true;
+    if(typeof _colaNumTareas==='function' && _colaNumTareas()>0) return true; // tareas apuntadas sin enviar
     return JSON.parse(localStorage.getItem('pm_partes_borrar_pendiente')||'[]').length>0;
   } catch(e){ _fallo('_hayPendientesDeEnvio')(e); return false; }
 }
@@ -490,9 +497,11 @@ function _pintarPendientesEnvio(){
   var el=document.getElementById('pendientesEnvio'); if(!el) return;
   var n=0;
   try { n=getH().filter(function(r){ return r._pendienteSync; }).length; } catch(e){ _fallo('_pintarPendientesEnvio')(e); }
-  if(!n){ el.style.display='none'; el.innerHTML=''; return; }
+  var nt=(typeof _colaNumTareas==='function')?_colaNumTareas():0; // tareas (nuevas o con comentario) apuntadas que aun no han llegado
+  if(!n && !nt){ el.style.display='none'; el.innerHTML=''; return; }
+  var que=[]; if(n) que.push(n===1?'1 parte':n+' partes'); if(nt) que.push(nt===1?'1 tarea':nt+' tareas');
   el.innerHTML='<div class="card" style="border-left:4px solid var(--amber);"><div class="card-title">&#9203; Pendiente de enviar</div>'
-    +'<div style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">'+(n===1?'Tienes 1 parte guardado en este m&oacute;vil que a&uacute;n no ha llegado al servidor.':'Tienes '+n+' partes guardados en este m&oacute;vil que a&uacute;n no han llegado al servidor.')+' Se enviar&aacute;n solos en cuanto haya conexi&oacute;n.</div>'
+    +'<div style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">'+('Tienes '+que.join(' y ')+' guardad'+((nt&&!n)?'a':'o')+((n+nt)===1?'':'s')+' en este m&oacute;vil que a&uacute;n no '+((n+nt)===1?'ha llegado':'han llegado')+' al servidor.')+' Se enviar&aacute;n solos en cuanto haya conexi&oacute;n.</div>'
     +'<button class="btn btn-p btn-full" onclick="_enviarPendientesAhora()">&#128228; Enviar ahora</button></div>';
   el.style.display='block';
 }
