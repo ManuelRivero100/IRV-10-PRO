@@ -118,14 +118,34 @@ self.addEventListener('push', function(e){
   e.waitUntil(Promise.all(tareas));
 });
 
+// Al tocar un aviso hay que ver la app SIEMPRE. Si ya hay una ventana, se le pide ponerse al frente y se le avisa para que vaya al inicio; en
+// algunos moviles Android eso responde "hecho" sin traerla al frente, asi que se comprueba medio segundo despues y, si no esta visible, se
+// pide abrir la app (eso si la trae al frente, este abierta o cerrada). Si no hay ninguna ventana (app cerrada) se abre directamente.
+var URL_AVISO = './?aviso=1';
+function _hayVentanaVisible(lista){
+  for(var i = 0; i < lista.length; i++){ if(lista[i].visibilityState === 'visible') return true; }
+  return false;
+}
+function _abrirAppDesdeAviso(){
+  var opciones = {type: 'window', includeUncontrolled: true};
+  return self.clients.matchAll(opciones).then(function(lista){
+    if(!lista.length) return self.clients.openWindow(URL_AVISO);
+    var c = lista[0];
+    for(var i = 0; i < lista.length; i++){ if(lista[i].visibilityState === 'visible' || lista[i].focused){ c = lista[i]; break; } }
+    return Promise.resolve().then(function(){ return c.focus(); }).then(function(w){
+      try { (w || c).postMessage({tipo: 'irv-aviso-click'}); } catch(x) {}
+      return new Promise(function(ok){ setTimeout(ok, 500); }).then(function(){
+        return self.clients.matchAll(opciones);
+      }).then(function(otra){
+        if(!_hayVentanaVisible(otra)) return self.clients.openWindow(URL_AVISO);
+      });
+    }, function(){
+      return self.clients.openWindow(URL_AVISO);
+    });
+  });
+}
+
 self.addEventListener('notificationclick', function(e){
   e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(function(lista){
-      for(var i = 0; i < lista.length; i++){
-        if('focus' in lista[i]) return lista[i].focus();
-      }
-      return self.clients.openWindow('./');
-    })
-  );
+  e.waitUntil(_abrirAppDesdeAviso().catch(function(){ return self.clients.openWindow(URL_AVISO); }));
 });

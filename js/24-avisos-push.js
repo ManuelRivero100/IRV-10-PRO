@@ -81,3 +81,22 @@ function _pushActivar(){
     });
   }).catch(function(){ _toast('No se pudieron activar los avisos. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
 }
+
+// Al tocar un aviso de la barra, el service worker trae la app al frente y le manda este mensaje (o la abre con ?aviso=1 si estaba cerrada):
+// se lleva al tecnico/administrador al inicio, donde estan sus asignaciones, tareas y avisos. Si esta rellenando un parte no se le mueve de sitio.
+function _irAlInicioPorAviso(){
+  try {
+    if(!window._sesion || !localStorage.getItem('irv_sesion')) return;
+    if(typeof _parteTieneContenidoSinGuardar === 'function' && _parteTieneContenidoSinGuardar()) return;
+    goTo('w-clientes');
+  } catch(e){ _fallo('_irAlInicioPorAviso')(e); }
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', function(ev){
+    if(ev.data && ev.data.tipo === 'irv-aviso-click') _irAlInicioPorAviso();
+  });
+}
+if(/[?&]aviso=1(&|$)/.test(location.search)){
+  try { history.replaceState(null, '', location.pathname); } catch(e){ _fallo('avisoUrl')(e); }
+  setTimeout(_irAlInicioPorAviso, 3500);
+}
