@@ -33,6 +33,8 @@ async function contarSinIniciar(tec) {
   return n;
 }
 
+// Cada aviso lleva "para": 'tecnico' (lo que le pasa como tecnico) o 'admin' (lo que sale en su panel de administrador). La app lo usa al tocar el aviso
+// para abrirlo en el rol que corresponde. Los moviles con la app anterior ignoran ese dato.
 // Manda la carga a una lista de moviles (documentos de dispositivosPush).
 async function enviar(docs, carga) {
   webpush.setVapidDetails('https://irv-10-pro.web.app', VAPID_PUBLICA, VAPID_PRIVADA.value());
@@ -52,7 +54,7 @@ async function avisar(aviso) {
   const disp = await db.collection('dispositivosPush').where('tecnico', '==', aviso.tecnico).get();
   if (disp.empty) return;
   const n = await contarSinIniciar(aviso.tecnico);
-  await enviar(disp.docs, JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, n: n }));
+  await enviar(disp.docs, JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, n: n, para: 'tecnico' }));
 }
 
 // ---- Avisos para el administrador (lo mismo que ve en el panel de avisos de la app) ----
@@ -89,7 +91,7 @@ async function avisarAdmins(aviso) {
   const docs = await dispositivosAdmin();
   if (!docs.length) return;
   const n = await contarPanelAdmin();
-  await enviar(docs, JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, n: n }));
+  await enviar(docs, JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, n: n, para: 'admin' }));
 }
 
 exports.avisosIncidencias = onDocumentWritten(
