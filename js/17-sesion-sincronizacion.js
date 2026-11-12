@@ -704,10 +704,12 @@ function _comprobarVersionNueva(){
         _actualizarEnSilencio(m[1]);
         return;
       }
-      Promise.all([
-        caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }),
-        navigator.serviceWorker.getRegistrations().then(function(regs){ return Promise.all(regs.map(function(r){ return r.unregister(); })); })
-      ]).then(function(){ location.reload(true); }).catch(function(){ location.reload(true); });
+      // Sin sesión se instala el service worker de la versión nueva SIN desinstalar el actual: desinstalarlo destruye la suscripción a los avisos
+      // del móvil (había que volver a activarlos cada vez que se publicaba una versión nueva). Al activarse el nuevo toma el control y borra las
+      // cachés de versiones anteriores (ver sw.js), y entonces se recarga una sola vez para usar el código nuevo.
+      var _yaRecargada = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function(){ if(_yaRecargada) return; _yaRecargada = true; location.reload(); });
+      _actualizarEnSilencio(m[1]);
     }
   }).catch(function(){}); // sin conexión — no pasa nada, se comprobará en el siguiente ciclo
 }
