@@ -302,7 +302,9 @@ function _recuperarSesionGuardada(){
     }
     var nombreKey = s.nombre.toLowerCase();
     var usuarioDelDispositivo = localStorage.getItem(DISPOSITIVO_USUARIO_KEY);
-    var hayQueRefrescar = (usuarioDelDispositivo && usuarioDelDispositivo !== nombreKey) || localStorage.getItem(ULTIMA_VERIFICACION_KEY) !== hoy;
+    // El logo (presentacion) solo sale al entrar por el login con PIN. Al recuperar una sesion guardada nunca sale por el cambio de dia:
+    // antes de las 6:00 el dia cambia a medianoche pero el cierre diario aun no ha pasado.
+    var hayQueRefrescar = (usuarioDelDispositivo && usuarioDelDispositivo !== nombreKey) || (localStorage.getItem(ULTIMA_VERIFICACION_KEY) !== hoy && ahora.getHours() >= 6);
     if (hayQueRefrescar) {
       // Otro usuario o primer uso del día en este dispositivo: se limpia y se resincroniza como siempre, con su presentación
       _iniciarPresentacionLogin(s.nombre);
