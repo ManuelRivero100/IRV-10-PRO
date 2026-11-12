@@ -11,11 +11,12 @@ var _COLA_TAREAS_KEY = 'pm_tareas_pendientes_envio'; // claves de las tareas apu
 
 function _colaAbrir(){
   return new Promise(function(ok, ko){
-    var r = indexedDB.open(_COLA_BD, 1);
+    var r = indexedDB.open(_COLA_BD, 2);
     r.onupgradeneeded = function(){
       var d = r.result;
       if(!d.objectStoreNames.contains('partes')) d.createObjectStore('partes', {keyPath: 'clave'});
       if(!d.objectStoreNames.contains('tareas')) d.createObjectStore('tareas', {keyPath: 'clave'});
+      if(!d.objectStoreNames.contains('registro')) d.createObjectStore('registro', {keyPath: 'id', autoIncrement: true}); // actividad (la app y el service worker anotan aqui)
     };
     r.onsuccess = function(){ ok(r.result); };
     r.onerror = function(){ ko(r.error); };
@@ -45,12 +46,35 @@ function _colaSesion(){
     return {uid: u.uid, refreshToken: u.refreshToken, apiKey: o.apiKey, projectId: o.projectId};
   } catch(e){ _fallo('_colaSesion')(e); return null; }
 }
+// ----- Registro de actividad (para saber que pasa cuando algo no llega) -----
+// La app y el service worker anotan aqui lo que hacen; se ve tocando la version en la pantalla de entrada. Se guardan solo las ultimas anotaciones.
+function _colaLog(texto){
+  try {
+    return _colaPoner('registro', {ts: Date.now(), origen: 'app', texto: String(texto).slice(0, 300)}).then(function(){
+      return _colaTodos('registro');
+    }).then(function(l){
+      if(l.length > 80) return Promise.all(l.slice(0, l.length - 60).map(function(x){ return _colaQuitar('registro', x.id); }));
+    }).catch(function(){});
+  } catch(e){ return Promise.resolve(); }
+}
+function _colaHora(ms){ var d = new Date(ms); function z(n){ return (n < 10 ? '0' : '') + n; } return z(d.getDate()) + '/' + z(d.getMonth() + 1) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
+// Resumen en texto: lo que hay apuntado ahora y las ultimas anotaciones (de la app y del service worker)
+function _colaResumen(){
+  return Promise.all([_colaTodos('partes'), _colaTodos('tareas'), _colaTodos('registro')]).then(function(r){
+    var l = r[2].slice(-14).reverse().map(function(x){ return _colaHora(x.ts) + ' ' + (x.origen === 'sw' ? '[SW] ' : '[app] ') + x.texto; });
+    return 'EN COLA AHORA: ' + r[0].length + ' parte(s), ' + r[1].length + ' tarea(s)\n'
+      + 'Sync de fondo soportado: ' + ((window.SyncManager || (typeof ServiceWorkerRegistration !== 'undefined' && 'sync' in ServiceWorkerRegistration.prototype)) ? 'si' : 'NO') + '  |  En linea: ' + (navigator.onLine === false ? 'no' : 'si') + '\n'
+      + '\nULTIMA ACTIVIDAD:\n' + (l.length ? l.join('\n') : '(nada anotado todavia)')
+      + (typeof window._textoCargas === 'function' ? '\n\n' + window._textoCargas() : ''); // registro de cargas (js/26-registro-cargas.js)
+  }).catch(function(e){ return 'No se pudo leer el registro: ' + e; });
+}
 function _colaRegistrarSync(){
   try {
-    if(!('serviceWorker' in navigator)) return;
+    if(!('serviceWorker' in navigator)){ _colaLog('sin service worker: no se puede pedir el envio de fondo'); return; }
     navigator.serviceWorker.ready.then(function(reg){
-      if(reg.sync && reg.sync.register) return reg.sync.register(_COLA_TAG);
-    }).catch(_fallo('_colaRegistrarSync'));
+      if(!(reg.sync && reg.sync.register)){ _colaLog('este navegador no tiene sync de fondo (reg.sync): solo se enviara al abrir la app'); return; }
+      return reg.sync.register(_COLA_TAG).then(function(){ _colaLog('envio de fondo pedido (sync registrado)'); });
+    }).catch(function(e){ _colaLog('FALLO al pedir el sync: ' + (e && e.message || e)); _fallo('_colaRegistrarSync')(e); });
   } catch(e){ _fallo('_colaRegistrarSync')(e); }
 }
 
@@ -72,14 +96,16 @@ function _colaApuntar(almacen, item){
     if(almacen === 'tareas'){
       var l = _colaTareasLista(); if(l.indexOf(item.clave) < 0){ l.push(item.clave); _colaTareasGuardarLista(l); }
     }
-    return _colaPoner(almacen, item).catch(_fallo('_colaApuntar ' + almacen));
+    var queda = _colaPoner(almacen, item);
+    queda.then(function(){ _colaLog('apuntado ' + (almacen === 'partes' ? 'parte ' : 'tarea ') + item.clave + (item.ses ? ' (con sesion)' : ' (SIN SESION: el envio de fondo no podra identificarse)') + ' | en linea: ' + (navigator.onLine === false ? 'no' : 'si')); }, function(){});
+    return queda.catch(_fallo('_colaApuntar ' + almacen));
   } catch(e){ _fallo('_colaApuntar')(e); return Promise.resolve(); }
 }
 // Se llama cuando el servidor confirma el envío normal: ya no hace falta lo apuntado.
 function _colaConfirmar(almacen, clave){
   try {
     if(almacen === 'tareas') _colaTareasGuardarLista(_colaTareasLista().filter(function(k){ return k !== clave; }));
-    return _colaQuitar(almacen, clave).catch(_fallo('_colaConfirmar ' + almacen));
+    return _colaQuitar(almacen, clave).then(function(){ _colaLog('confirmado por el servidor y quitado de la cola: ' + clave); }).catch(_fallo('_colaConfirmar ' + almacen));
   } catch(e){ _fallo('_colaConfirmar')(e); return Promise.resolve(); }
 }
 // Pide el envío de fondo: ya, si no hay conexión; y si hay, a los 20 s si el servidor no ha confirmado todavía.
@@ -122,8 +148,29 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(ev){
     if(!ev.data || ev.data.tipo !== 'irv-cola-enviada') return;
     try {
+      _colaLog('el service worker avisa: ha enviado ' + ev.data.n + ' cosa(s)');
       _colaTodos('tareas').then(function(l){ _colaTareasGuardarLista(l.map(function(x){ return x.clave; })); }).catch(_fallo('cola mensaje tareas'));
       if(typeof _reintentarPartesPendientes === 'function') _reintentarPartesPendientes();
     } catch(e){ _fallo('cola mensaje')(e); }
   });
 }
+
+// Tocando la version en la pantalla de entrada se ve el registro de actividad (lo apuntado, los envios de fondo y sus resultados).
+window.addEventListener('load', function(){
+  try {
+    var v = document.getElementById('verApp'); if(!v) return;
+    v.style.cursor = 'pointer';
+    v.addEventListener('click', function(){ _colaResumen().then(function(t){ alert(t); }); });
+  } catch(e){ _fallo('verApp registro')(e); }
+});
+// Dentro de la app (sin cerrar sesion): tocar 3 veces seguidas el nombre de la cabecera ("Manuel Rivero · tecnico") enseña lo mismo.
+window.addEventListener('load', function(){
+  try {
+    var h = document.getElementById('hdr-sub'); if(!h) return;
+    var toques = [];
+    h.addEventListener('click', function(){
+      var ahora = Date.now(); toques = toques.filter(function(t){ return ahora - t < 1500; }); toques.push(ahora);
+      if(toques.length >= 3){ toques = []; _colaResumen().then(function(t){ alert(t); }); }
+    });
+  } catch(e){ _fallo('hdr-sub registro')(e); }
+});

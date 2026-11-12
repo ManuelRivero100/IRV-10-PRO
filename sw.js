@@ -162,11 +162,12 @@ self.addEventListener('notificationclick', function(e){
 var COLA_BD = 'irv-cola';
 function colaAbrir(){
   return new Promise(function(ok, ko){
-    var r = indexedDB.open(COLA_BD, 1);
+    var r = indexedDB.open(COLA_BD, 2);
     r.onupgradeneeded = function(){
       var d = r.result;
       if(!d.objectStoreNames.contains('partes')) d.createObjectStore('partes', {keyPath: 'clave'});
       if(!d.objectStoreNames.contains('tareas')) d.createObjectStore('tareas', {keyPath: 'clave'});
+      if(!d.objectStoreNames.contains('registro')) d.createObjectStore('registro', {keyPath: 'id', autoIncrement: true});
     };
     r.onsuccess = function(){ ok(r.result); };
     r.onerror = function(){ ko(r.error); };
@@ -235,9 +236,21 @@ function colaAvisar(n){
     l.forEach(function(c){ try { c.postMessage({tipo: 'irv-cola-enviada', n: n}); } catch(x) {} });
   });
 }
+// Anota en el registro (lo ve la app tocando la version en la pantalla de entrada) lo que ha hecho este envio. Nunca debe estropear el envio.
+function colaAnotar(notas){
+  return colaAbrir().then(function(db){
+    return new Promise(function(ok){
+      var t = db.transaction('registro', 'readwrite'), st = t.objectStore('registro');
+      notas.forEach(function(x){ st.put({ts: Date.now(), origen: 'sw', texto: String(x).slice(0, 300)}); });
+      t.oncomplete = function(){ db.close(); ok(); }; t.onerror = t.onabort = function(){ db.close(); ok(); };
+    });
+  }).catch(function(){});
+}
 function colaEnviarTodo(){
+  var notas = ['sync recibido: el navegador despierta al service worker'];
   return colaAbrir().then(function(db){
     return Promise.all([colaTodos(db, 'partes'), colaTodos(db, 'tareas')]).then(function(r){
+      notas.push('en cola: ' + r[0].length + ' parte(s), ' + r[1].length + ' tarea(s)');
       var trabajo = [];
       r[0].forEach(function(it){ trabajo.push({almacen: 'partes', it: it, enviar: colaEnviarParte}); });
       r[1].forEach(function(it){ trabajo.push({almacen: 'tareas', it: it, enviar: colaEnviarTarea}); });
@@ -245,14 +258,14 @@ function colaEnviarTodo(){
       var cache = {}, enviados = 0, fallos = 0, cadena = Promise.resolve();
       trabajo.forEach(function(w){
         cadena = cadena.then(function(){
-          if(!w.it.ses || !w.it.ses.refreshToken || !w.it.ses.apiKey || !w.it.ses.projectId){ fallos++; return; } // sin sesion apuntada: lo envia la app al abrirse
+          if(!w.it.ses || !w.it.ses.refreshToken || !w.it.ses.apiKey || !w.it.ses.projectId){ fallos++; notas.push('SIN SESION apuntada: ' + w.almacen + ' ' + w.it.clave + ' (lo enviara la app al abrirse)'); return; }
           return colaToken(w.it.ses, cache).then(function(tok){ return w.enviar(w.it, tok); }).then(function(){
-            enviados++; return colaQuitar(db, w.almacen, w.it.clave);
+            enviados++; notas.push('ENVIADO ' + w.almacen + ' ' + w.it.clave); return colaQuitar(db, w.almacen, w.it.clave);
           }).catch(function(e){
             var yaEnviada = e && e.estado === 409 && w.almacen === 'tareas' && w.it.op === 'crear';  // ya existia: llego antes
             var tareaBorrada = e && e.estado === 404 && w.almacen === 'tareas' && w.it.op === 'comentar'; // la tarea ya no existe: no hay donde comentar
-            if(yaEnviada || tareaBorrada){ if(yaEnviada) enviados++; return colaQuitar(db, w.almacen, w.it.clave); }
-            fallos++;
+            if(yaEnviada || tareaBorrada){ if(yaEnviada) enviados++; notas.push((yaEnviada ? 'YA EXISTIA ' : 'TAREA BORRADA, se descarta ') + w.almacen + ' ' + w.it.clave); return colaQuitar(db, w.almacen, w.it.clave); }
+            fallos++; notas.push('ERROR ' + w.almacen + ' ' + w.it.clave + ': ' + (e && e.message || e));
           });
         });
       });
@@ -261,8 +274,13 @@ function colaEnviarTodo(){
         return colaAvisar(enviados).then(function(){ if(fallos) throw new Error('quedan ' + fallos + ' sin enviar'); return enviados; });
       });
     });
+  }).then(function(n){
+    notas.push('fin: ' + n + ' enviado(s)');
+    return colaAnotar(notas).then(function(){ return n; });
+  }, function(e){
+    notas.push('fin con fallo: ' + (e && e.message || e) + ' (el navegador reintentara mas tarde)');
+    return colaAnotar(notas).then(function(){ throw e; });
   });
-}
-self.addEventListener('sync', function(e){
+}self.addEventListener('sync', function(e){
   if(e.tag === 'irv-enviar') e.waitUntil(colaEnviarTodo()); // si falla algo, la promesa rechaza y el navegador vuelve a intentarlo mas tarde
 });
