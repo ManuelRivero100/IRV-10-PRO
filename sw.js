@@ -246,16 +246,21 @@ function colaAnotar(notas){
     });
   }).catch(function(){});
 }
-function colaEnviarTodo(){
-  var notas = ['sync recibido: el navegador despierta al service worker'];
+// Al volver la conexion el movil avisa de que hay red ANTES de que este lista (la radio aun se esta enganchando): el primer intento suele fallar
+// con "Failed to fetch". En vez de rendirse y esperar los ~5 minutos que tarda el navegador en reintentar, se reintenta aqui mismo, con esperas
+// cortas, mientras el fallo sea de red (un error del servidor, como un 403, no se reintenta).
+var COLA_ESPERAS = [5000, 10000, 20000, 30000];
+function colaEsFalloDeRed(e){ return !!e && !e.estado && (e instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(String(e.message || e))); }
+// Una pasada por la cola: devuelve {enviados, fallos, red} (red = alguno de los fallos fue de red)
+function colaUnaPasada(notas){
   return colaAbrir().then(function(db){
     return Promise.all([colaTodos(db, 'partes'), colaTodos(db, 'tareas')]).then(function(r){
       notas.push('en cola: ' + r[0].length + ' parte(s), ' + r[1].length + ' tarea(s)');
       var trabajo = [];
       r[0].forEach(function(it){ trabajo.push({almacen: 'partes', it: it, enviar: colaEnviarParte}); });
       r[1].forEach(function(it){ trabajo.push({almacen: 'tareas', it: it, enviar: colaEnviarTarea}); });
-      if(!trabajo.length){ db.close(); return 0; }
-      var cache = {}, enviados = 0, fallos = 0, cadena = Promise.resolve();
+      if(!trabajo.length){ db.close(); return {enviados: 0, fallos: 0, red: false}; }
+      var cache = {}, enviados = 0, fallos = 0, red = false, cadena = Promise.resolve();
       trabajo.forEach(function(w){
         cadena = cadena.then(function(){
           if(!w.it.ses || !w.it.ses.refreshToken || !w.it.ses.apiKey || !w.it.ses.projectId){ fallos++; notas.push('SIN SESION apuntada: ' + w.almacen + ' ' + w.it.clave + ' (lo enviara la app al abrirse)'); return; }
@@ -265,16 +270,31 @@ function colaEnviarTodo(){
             var yaEnviada = e && e.estado === 409 && w.almacen === 'tareas' && w.it.op === 'crear';  // ya existia: llego antes
             var tareaBorrada = e && e.estado === 404 && w.almacen === 'tareas' && w.it.op === 'comentar'; // la tarea ya no existe: no hay donde comentar
             if(yaEnviada || tareaBorrada){ if(yaEnviada) enviados++; notas.push((yaEnviada ? 'YA EXISTIA ' : 'TAREA BORRADA, se descarta ') + w.almacen + ' ' + w.it.clave); return colaQuitar(db, w.almacen, w.it.clave); }
-            fallos++; notas.push('ERROR ' + w.almacen + ' ' + w.it.clave + ': ' + (e && e.message || e));
+            fallos++; if(colaEsFalloDeRed(e)) red = true;
+            notas.push('ERROR ' + w.almacen + ' ' + w.it.clave + ': ' + (e && e.message || e));
           });
         });
       });
-      return cadena.then(function(){
-        db.close();
-        return colaAvisar(enviados).then(function(){ if(fallos) throw new Error('quedan ' + fallos + ' sin enviar'); return enviados; });
+      return cadena.then(function(){ db.close(); return {enviados: enviados, fallos: fallos, red: red}; });
+    });
+  });
+}
+function colaEnviarTodo(){
+  var notas = ['sync recibido: el navegador despierta al service worker'], total = 0;
+  function pasada(n){
+    return colaUnaPasada(notas).then(function(r){
+      total += r.enviados;
+      return colaAvisar(r.enviados).then(function(){
+        if(r.fallos && r.red && n < COLA_ESPERAS.length){
+          notas.push('sin red utilizable todavia: reintento en ' + (COLA_ESPERAS[n] / 1000) + ' s (intento ' + (n + 2) + ')');
+          return new Promise(function(ok){ setTimeout(ok, COLA_ESPERAS[n]); }).then(function(){ return pasada(n + 1); });
+        }
+        if(r.fallos) throw new Error('quedan ' + r.fallos + ' sin enviar');
+        return total;
       });
     });
-  }).then(function(n){
+  }
+  return pasada(0).then(function(n){
     notas.push('fin: ' + n + ' enviado(s)');
     return colaAnotar(notas).then(function(){ return n; });
   }, function(e){
