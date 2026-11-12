@@ -126,14 +126,19 @@ function _colaVigilar(almacen, clave){
 function _colaReenviarTareas(){
   try {
     if(typeof _db === 'undefined' || !_db || !window._sesion) return;
+    // Sin conexion no se reenvia nada: el envio normal de la app solo se queda esperando en memoria y, si se diera por bueno, se borraria
+    // de la cola algo que el servidor no ha recibido (y si la app se cierra, se perderia).
+    if(navigator.onLine === false) return;
     _colaTodos('tareas').then(function(lista){
       _colaTareasGuardarLista(lista.map(function(x){ return x.clave; }));
       lista.forEach(function(it){
         var ref = _db.collection('tareasPendientes').doc(it.id), p;
-        // La tarea nueva solo se crea si todavia no existe (si ya esta, llego antes; no se pisa lo que otros hayan comentado despues)
-        if(it.op === 'crear') p = ref.get().then(function(d){ if(!d.exists) return ref.set(it.datos); });
+        // La tarea nueva solo se crea si todavia no existe EN EL SERVIDOR (si ya esta, llego antes; no se pisa lo que otros hayan comentado despues).
+        // Se pregunta al servidor de verdad: sin eso, la propia escritura que la app tiene pendiente en memoria haria creer que ya existe.
+        if(it.op === 'crear') p = ref.get({source: 'server'}).then(function(d){ if(!d.exists) return ref.set(it.datos); });
         else p = ref.update(Object.assign({}, it.campos, {comentarios: firebase.firestore.FieldValue.arrayUnion(it.comentario)}));
-        p.then(function(){ _colaConfirmar('tareas', it.clave); }).catch(function(err){
+        p.then(function(){ _colaLog('reenvio por la app: ' + it.clave + ' llego al servidor'); _colaConfirmar('tareas', it.clave); }).catch(function(err){
+          _colaLog('reenvio por la app: ' + it.clave + ' NO llego (' + (err && (err.code || err.message) || err) + ')');
           // El servidor lo rechaza (o la tarea ya no existe): no se reintenta mas
           if(err && (err.code === 'permission-denied' || (err.code === 'not-found' && it.op === 'comentar'))) _colaConfirmar('tareas', it.clave);
         });
