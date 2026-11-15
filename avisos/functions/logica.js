@@ -82,6 +82,14 @@ function parteSinGuardarParaAvisar(d, ahora) {
 function avisoAdminParteSinGuardar(d) {
   return { titulo: 'Parte sin guardar', texto: unir([d.tecnicoGenerador, d.tienda]) };
 }
+// Parte nuevo guardado por un tecnico. Se avisa SOLO cuando el parte se crea en el servidor (no en cada edicion ni reenvio), y vale igual
+// si lo envio el segundo plano del movil. Texto: tienda, orden y tecnico(s).
+function avisoAdminParte(d) {
+  if (!d) return null;
+  const tecs = (Array.isArray(d.tecnicos) ? d.tecnicos : []).map(function (t) { return typeof t === 'string' ? t : ((t && t.nombre) || ''); }).filter(Boolean);
+  const quien = tecs.length ? tecs.join(', ') : (d.tecnicoPrincipal || '');
+  return { titulo: 'Parte nuevo', texto: unir([d.tienda, d.pedido ? 'Orden ' + d.pedido : '', quien]) };
+}
 
 // ---- Recordatorio de las 17:00: tecnico que no ha llenado su registro de horas de hoy ----
 // Misma regla que el control horario de la app: de lunes a viernes, tecnicos con fecha de alta (activoDesde) y sin registro ese dia.
@@ -156,5 +164,5 @@ module.exports = {
   finJornadaMin, minutoRecordatorio, debeRecordarHoras,
   incidenciaSinIniciar, tareaSinIniciar, avisarIncidencia, avisarTarea,
   avisoAdminIncidencia, avisoAdminTarea, avisoAdminNotificacion, avisoAdminMaterial,
-  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, MIN_SIN_GUARDAR_MS
+  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, avisoAdminParte, MIN_SIN_GUARDAR_MS
 };

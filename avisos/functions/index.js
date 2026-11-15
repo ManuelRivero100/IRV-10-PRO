@@ -4,7 +4,7 @@
 // con el numero de cosas que tiene sin iniciar (la app lo pone en el icono). No manda recordatorios ni avisos de "ya no tienes nada":
 // el numero se mantiene hasta que el tecnico abre la app y esta lo recalcula. Los moviles estan en la coleccion dispositivosPush.
 // Ademas avisa a los administradores de todo lo que sale en su panel de avisos (orden nueva, solicitud de reabrir, tarea, solape, acceso
-// desactivado, material pendiente, parte sin guardar). Solo LEE datos; escribe en dispositivosPush para borrar un movil que ya no existe
+// desactivado, material pendiente, parte sin guardar, parte nuevo). Solo LEE datos; escribe en dispositivosPush para borrar un movil que ya no existe
 // y marca avisadoAdmin en partesSinGuardar para no avisar dos veces del mismo parte.
 
 const { onDocumentWritten, onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -136,6 +136,16 @@ exports.avisosMateriales = onDocumentCreated(
   { document: 'materialesFlotantes/{id}', region: REGION, secrets: [VAPID_PRIVADA] },
   async function (event) {
     const aviso = L.avisoAdminMaterial(event.data ? event.data.data() : null);
+    if (aviso) await avisarAdmins(aviso);
+  }
+);
+
+// Parte nuevo: cuando un tecnico guarda un parte (se crea el documento en partes) se avisa al administrador, una sola vez por parte.
+// Tambien salta cuando el parte lo sube el segundo plano del movil, porque el aviso nace de la escritura en el servidor.
+exports.avisosPartes = onDocumentCreated(
+  { document: 'partes/{id}', region: REGION, secrets: [VAPID_PRIVADA] },
+  async function (event) {
+    const aviso = L.avisoAdminParte(event.data ? event.data.data() : null);
     if (aviso) await avisarAdmins(aviso);
   }
 );
