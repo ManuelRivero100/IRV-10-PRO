@@ -399,6 +399,13 @@ function _confirmarTerminarGuardado(estado){
   goTo('w-clientes');
   renderAsgAdmin();
 }
+// ¿La orden es de un cliente de tipo Mercadona? Las órdenes de Mercadona NO se abren a todos los técnicos (esa opción es solo para los demás clientes).
+function _clienteEsMercadona(clienteId) {
+  var id = clienteId || 'mercadona';
+  if (id === 'mercadona') return true;
+  var c = getClientes().filter(function(x){ return x.id === id; })[0];
+  return !!(c && c.tipo === 'mercadona');
+}
 function verAsgAdminAviso(id, clienteId) {
   _db.collection('incidencias').doc(id).get().then(function(doc){
     if (!doc.exists) return;
@@ -417,7 +424,7 @@ function verAsgAdminAviso(id, clienteId) {
       + '</div>'
       + '<button class="btn btn-p btn-full" style="margin-top:12px;" onclick="goTo(\'w-clientes\')">&#10003; '+(d.abiertaATodos===true?'Dejar abierta a todos':'Mantener a '+escHtml(d.tecnicoPrincipal||'su t&eacute;cnico'))+'</button>'
       + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="verAsgAdminReasignar(\''+clienteId+'\',\''+id+'\')">&#128260; Cambiar de t&eacute;cnico</button>'
-      + (d.abiertaATodos===true?'':'<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+id+'\', function(){ goTo(\'w-clientes\'); })">&#127760; Abrir a todos</button>')
+      + ((d.abiertaATodos===true || _clienteEsMercadona(d.clienteId||clienteId))?'':'<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+id+'\', function(){ goTo(\'w-clientes\'); })">&#127760; Abrir a todos</button>')
       + '<button class="btn btn-s btn-full" style="margin-top:8px;" onclick="cerrarIncidenciaPorId(\''+id+'\', function(){ goTo(\'w-clientes\'); })">&#9989; Cerrar la orden</button>';
     $('consultaAsgBody').innerHTML = html;
     goTo('w-consultaAsg');

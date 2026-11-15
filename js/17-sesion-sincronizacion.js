@@ -1177,7 +1177,7 @@ function _renderAsgTecGrupoBody(nom){
       +'</select></div>'
       +(esGrupoTodos
         ? '<button class="btn btn-p btn-sm" style="margin-top:8px;" onclick="cerrarIncidenciaPorId(\''+d.id+'\')">&#9989; Cerrar</button>'
-        : '<button class="btn btn-s btn-sm" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+d.id+'\')">&#127760; Abrir a todos</button>')
+        : (_clienteEsMercadona(d.clienteId||(curCliente&&curCliente.id)) ? '' : '<button class="btn btn-s btn-sm" style="margin-top:8px;" onclick="abrirIncidenciaATodos(\''+d.id+'\')">&#127760; Abrir a todos</button>'))
       +'<button class="btn btn-d btn-sm" style="margin-top:8px;margin-left:6px;" onclick="eliminarIncidencia(\''+d.id+'\')">&#128465; Eliminar</button>';
     html += '</div>';
   });
