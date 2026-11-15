@@ -163,7 +163,9 @@ function _sincronizarContadorIRV(){
     if(!doc.exists) return;
     var remoto = doc.data().siguiente||0;
     var local = +(localStorage.getItem('pm_siguiente_irv')||0);
-    if(remoto>local) localStorage.setItem('pm_siguiente_irv', String(remoto));
+    // El contador del servidor manda: el móvil copia su valor tanto si sube como si baja (el servidor lo baja al borrarse la última orden y
+    // ya nada usa su número). nextIRV() sigue sin dar un número ya usado en el historial de este móvil (toma el mayor de los dos).
+    if(remoto>0 && remoto!==local) localStorage.setItem('pm_siguiente_irv', String(remoto));
   }).catch(_fallo('_sincronizarContadorIRV config.get'));
 }
 

@@ -20,12 +20,69 @@ function _moverAPapelera(coleccion, docId, razon){
     });
   });
 }
+// Devuelve una promesa que, si la orden tuvo que cambiar de número, trae el texto para avisar ("…con el número IRV-0046…"); si no, nada.
 function _restaurarDePapelera(idPapelera){
   return _db.collection('papelera').doc(idPapelera).get().then(function(snap){
     if(!snap.exists) throw new Error('No existe en la papelera.');
     var p = snap.data();
+    if(p.coleccionOriginal==='incidencias' && _numeroIRV((p.datos||{}).pedido)) return _restaurarOrdenIRV(idPapelera, p);
     return _db.collection(p.coleccionOriginal).doc(p.docIdOriginal).set(p.datos).then(function(){
       return _db.collection('papelera').doc(idPapelera).delete();
+    });
+  });
+}
+// "IRV-0044" -> 44; cualquier otro número de orden -> 0
+function _numeroIRV(pedido){
+  var m=/^IRV-(\d+)$/i.exec(String(pedido||'').trim());
+  var n=m?parseInt(m[1],10):0;
+  return n>0?n:0;
+}
+// ¿Hay ya OTRA orden o parte con este número IRV? (la propia orden restaurada y sus partes no cuentan)
+function _numeroIRVOcupado(pedido, centro, idOrdenPropia){
+  return Promise.all([
+    _db.collection('incidencias').where('pedido','==',pedido).get(),
+    _db.collection('partes').where('pedido','==',pedido).get()
+  ]).then(function(r){
+    var otraOrden=r[0].docs.some(function(x){ return x.id!==idOrdenPropia; });
+    var otroParte=r[1].docs.some(function(x){ return (x.data().centro||'')!==(centro||''); });
+    return otraOrden||otroParte;
+  });
+}
+// Restaurar una orden IRV: si su número sigue libre conserva el suyo (así cuadra con sus partes) y el contador avanza si hace falta; si ya lo
+// tomó otra orden, recibe directamente el último número disponible (el contador del servidor) y el contador avanza.
+function _restaurarOrdenIRV(idPapelera, p){
+  var d=p.datos||{}, viejo=d.pedido, nViejo=_numeroIRV(viejo), idPropio=p.docIdOriginal, ref=_db.collection('config').doc('contadorIRV');
+  return _numeroIRVOcupado(viejo, d.centro, idPropio).then(function(ocupado){
+    if(!ocupado){
+      return _db.collection('incidencias').doc(idPropio).set(d).then(function(){
+        _avanzarContadorIRV(viejo);
+        return _db.collection('papelera').doc(idPapelera).delete();
+      });
+    }
+    // Número ocupado: se toma el siguiente libre del contador (en transacción, por si otro móvil pide uno a la vez) y se comprueba que de verdad esté libre
+    function tomar(intentos){
+      return _db.runTransaction(function(t){
+        return t.get(ref).then(function(doc){
+          var s=(doc.exists && +doc.data().siguiente)||0;
+          var n=Math.max(s, nViejo+1);
+          t.set(ref, {siguiente:n+1});
+          return n;
+        });
+      }).then(function(n){
+        var nuevo='IRV-'+('000'+n).slice(-4);
+        return _numeroIRVOcupado(nuevo, '*', '').then(function(otro){   // número recién tomado: cualquier orden o parte que lo lleve lo ocupa
+          if(otro && intentos<5) return tomar(intentos+1);
+          if(otro) throw new Error('No se encontró un número libre.');
+          return nuevo;
+        });
+      });
+    }
+    return tomar(0).then(function(nuevo){
+      var nd=Object.assign({}, d, {pedido:nuevo}, _marcaModificacion('Restaurada de la papelera con el número '+nuevo+' ('+viejo+' ya estaba ocupado)'));
+      return _db.collection('incidencias').doc(incidenciaId(d.centro, nuevo)).set(nd).then(function(){
+        try{ var local=+(localStorage.getItem('pm_siguiente_irv')||0), sig=parseInt(nuevo.replace('IRV-',''),10)+1; if(sig>local) localStorage.setItem('pm_siguiente_irv', String(sig)); }catch(e){ _fallo('_restaurarOrdenIRV contador local')(e); }
+        return _db.collection('papelera').doc(idPapelera).delete();
+      }).then(function(){ return 'La orden se restauró con el número '+nuevo+', porque el '+viejo+' ya lo tenía otra orden.'; });
     });
   });
 }

@@ -33,7 +33,7 @@ function _renderPapelera(){
   }).catch(function(){ el.innerHTML='<p style="font-size:.85rem;color:var(--red);padding:10px 0;">Error al consultar la papelera.</p>'; });
 }
 function _restaurarDePapeleraUI(idPapelera){
-  _restaurarDePapelera(idPapelera).then(function(){ _renderPapelera(); }).catch(function(){ _toast('No se pudo restaurar. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
+  _restaurarDePapelera(idPapelera).then(function(aviso){ _renderPapelera(); if(aviso) _toast(aviso); }).catch(function(){ _toast('No se pudo restaurar. Comprueba tu conexión e inténtalo de nuevo.', _AVISO_ROJO); });
 }
 function _purgarDePapeleraUI(idPapelera){
   if(!_esAdmin()) return;
