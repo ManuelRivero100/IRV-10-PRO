@@ -5,9 +5,9 @@
 // el numero se mantiene hasta que el tecnico abre la app y esta lo recalcula. Los moviles estan en la coleccion dispositivosPush.
 // Ademas avisa a los administradores de todo lo que sale en su panel de avisos (orden nueva, solicitud de reabrir, tarea, solape, acceso
 // desactivado, material pendiente, parte sin guardar, parte nuevo). Solo LEE datos; escribe en dispositivosPush para borrar un movil que ya no existe
-// y marca avisadoAdmin en partesSinGuardar para no avisar dos veces del mismo parte.
+// y marca avisadoAdmin en partesSinGuardar para no avisar dos veces del mismo parte. Tambien baja config/contadorIRV al borrarse la ultima orden.
 
-const { onDocumentWritten, onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentWritten, onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -149,6 +149,31 @@ exports.avisosPartes = onDocumentCreated(
     if (aviso) await avisarAdmins(aviso);
   }
 );
+
+// Contador de ordenes IRV: si se borra la ULTIMA orden (o su ultimo parte) y ya nada usa ese numero, el contador baja a el y vuelve a estar libre.
+// Si se borra una orden anterior a la ultima, su numero se pierde (el contador no cambia). Los moviles copian el contador del servidor al
+// sincronizar. Antes de bajarlo se espera 20 s y se vuelve a mirar, por si el borrado es parte de un cambio (se borra el documento viejo y se
+// crea el nuevo con el mismo numero): asi no se libera un numero que sigue en uso.
+async function liberarNumero(event) {
+  const d = event.data ? event.data.data() : null;
+  const n = L.numeroOrden(d && d.pedido);
+  if (!n) return;
+  await new Promise(function (ok) { setTimeout(ok, 20000); });
+  const pedido = d.pedido;
+  const [inc, par] = await Promise.all([
+    db.collection('incidencias').where('pedido', '==', pedido).limit(1).get(),
+    db.collection('partes').where('pedido', '==', pedido).limit(1).get()
+  ]);
+  if (!inc.empty || !par.empty) return; // algo sigue usando ese numero
+  const ref = db.collection('config').doc('contadorIRV');
+  await db.runTransaction(async function (t) {
+    const s = await t.get(ref);
+    const nuevo = L.contadorTrasLiberar(s.exists ? s.data().siguiente : 0, n);
+    if (nuevo !== null) t.update(ref, { siguiente: nuevo });
+  });
+}
+exports.liberarNumeroIncidencia = onDocumentDeleted({ document: 'incidencias/{id}', region: REGION, timeoutSeconds: 60 }, liberarNumero);
+exports.liberarNumeroParte = onDocumentDeleted({ document: 'partes/{id}', region: REGION, timeoutSeconds: 60 }, liberarNumero);
 
 // Recordatorio del registro de horas (lunes a viernes, hora de Madrid): una hora despues de lo ultimo que pase en la jornada del tecnico
 // (17:00 si no hay partes o terminan a las 16:00; si un parte termina mas tarde, una hora despues de su fin, viaje de vuelta incluido).

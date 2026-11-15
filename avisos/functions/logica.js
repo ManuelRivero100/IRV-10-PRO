@@ -82,6 +82,19 @@ function parteSinGuardarParaAvisar(d, ahora) {
 function avisoAdminParteSinGuardar(d) {
   return { titulo: 'Parte sin guardar', texto: unir([d.tecnicoGenerador, d.tienda]) };
 }
+// ---- Contador de ordenes IRV (config/contadorIRV, campo "siguiente") ----
+// Numero de una orden "IRV-0044" -> 44 (otras series de numeracion no cuentan).
+function numeroOrden(pedido) {
+  const m = /^IRV-(\d+)$/i.exec(String(pedido || '').trim());
+  const n = m ? parseInt(m[1], 10) : 0;
+  return n > 0 ? n : 0;
+}
+// Al borrarse una orden o un parte con el numero n: el contador solo baja si n era el ULTIMO numero dado (siguiente = n + 1). Si se borra una
+// orden anterior a la ultima, su numero se pierde y el contador no cambia. Devuelve el valor nuevo de "siguiente", o null si no hay que tocarlo.
+function contadorTrasLiberar(siguiente, n) {
+  return n > 0 && Number(siguiente) === n + 1 ? n : null;
+}
+
 // Parte nuevo guardado por un tecnico. Se avisa SOLO cuando el parte se crea en el servidor (no en cada edicion ni reenvio), y vale igual
 // si lo envio el segundo plano del movil. Texto: tienda, orden y tecnico(s).
 function avisoAdminParte(d) {
@@ -164,5 +177,5 @@ module.exports = {
   finJornadaMin, minutoRecordatorio, debeRecordarHoras,
   incidenciaSinIniciar, tareaSinIniciar, avisarIncidencia, avisarTarea,
   avisoAdminIncidencia, avisoAdminTarea, avisoAdminNotificacion, avisoAdminMaterial,
-  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, avisoAdminParte, MIN_SIN_GUARDAR_MS
+  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, avisoAdminParte, numeroOrden, contadorTrasLiberar, MIN_SIN_GUARDAR_MS
 };
