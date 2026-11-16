@@ -406,10 +406,20 @@ function _clienteEsMercadona(clienteId) {
   var c = getClientes().filter(function(x){ return x.id === id; })[0];
   return !!(c && c.tipo === 'mercadona');
 }
+// Los datos de la tienda de una asignación (tienda, dirección, teléfono, km y desplazamiento) salen de la AGENDA compartida si la tienda está en ella:
+// así una corrección hecha en el catálogo llega también a las asignaciones ya creadas (antes la asignación conservaba la copia vieja y la agenda solo
+// rellenaba lo vacío). Si la agenda no tiene la tienda o le falta un dato, queda el de la asignación. Descripción, trabajo y nº de orden no cambian.
+function _asgConAgenda(d) {
+  var o = Object.assign({}, d);
+  var ag = null;
+  try { ag = agendaBuscar(d.clienteId, d.centro); } catch(e) { ag = null; }
+  if (ag) { ['tienda','dir','tel','km','tr'].forEach(function(k){ if (ag[k]) o[k] = ag[k]; }); }
+  return o;
+}
 function verAsgAdminAviso(id, clienteId) {
   _db.collection('incidencias').doc(id).get().then(function(doc){
     if (!doc.exists) return;
-    var d = doc.data();
+    var d = _asgConAgenda(doc.data());
     var refs=[]; if(d.pedido) refs.push('Orden '+d.pedido); if(d.centro) refs.push('Centro '+d.centro);
     var html = '<div class="card"><div class="card-title">&#128229; '+(d.tienda||'')+'</div>'
       + (d.verificarDatos?'<div class="rrow info-row" style="color:var(--amber);font-weight:600;"><span class="rc">&#9888;&#65039; Aviso</span><span class="rl">Datos por lectura autom&aacute;tica — verificar y validar</span><span class="rv"></span></div>':'')
@@ -442,7 +452,7 @@ function verAsgAdminReasignar(clienteId, id) {
 function verSolicitudReabrir(id) {
   _db.collection('incidencias').doc(id).get().then(function(doc){
     if (!doc.exists) return;
-    var d = doc.data();
+    var d = _asgConAgenda(doc.data());
     var refs=[]; if(d.pedido) refs.push('Orden '+d.pedido); if(d.centro) refs.push('Centro '+d.centro);
     var tec = (d.solicitudReabrir&&d.solicitudReabrir.tecnico)||'';
     var html = '<div class="card"><div class="card-title">&#128275; Solicitud de reapertura</div>'
@@ -517,7 +527,7 @@ function abrirAsgTecOpciones(id) { _asgTecAbrirOpciones(id); }
 function consultarAsgTec() {
   if (!_asgTecActual) return;
   $('dlgAsgTec').classList.remove('show');
-  var d = _asgTecActual;
+  var d = _asgConAgenda(_asgTecActual);
   var refs=[]; if(d.pedido) refs.push('N&ordm; orden: '+d.pedido); if(d.centro) refs.push('N&ordm; centro: '+d.centro);
   var html = '<div class="card"><div class="card-title">&#128229; '+(d.tienda||'')+'</div>'
     + (refs.length?'<div class="rrow info-row"><span class="rc">Datos</span><span class="rl">'+refs.join(' · ')+'</span><span class="rv"></span></div>':'')
@@ -551,18 +561,9 @@ function ejecutarAsgTec() {
     }
     else { _pedidoNoMerc = d.pedido; $('pedidoGenDisplay').textContent = d.pedido; _autoNumParte0000(d.pedido, d.centro); }
   }
-  // Si la asignación no traía km/tr/dir/tel/tienda, completar desde la agenda compartida
-  var datos = { centro:d.centro, tienda:d.tienda, dir:d.dir, tel:d.tel, km:d.km, tr:d.tr, job:d.job, descripcion:d.descripcion };
-  if(!datos.km || !datos.dir || !datos.tel || !datos.tienda){
-    var ag = agendaBuscar(d.clienteId, d.centro);
-    if(ag){
-      if(!datos.km && ag.km) datos.km=ag.km;
-      if(!datos.tr && ag.tr) datos.tr=ag.tr;
-      if(!datos.dir && ag.dir) datos.dir=ag.dir;
-      if(!datos.tel && ag.tel) datos.tel=ag.tel;
-      if(!datos.tienda && ag.tienda) datos.tienda=ag.tienda;
-    }
-  }
+  // Los datos de la tienda salen de la AGENDA si la tienda está en ella (ver _asgConAgenda); la asignación solo aporta lo que la agenda no tiene.
+  var dg = _asgConAgenda(d);
+  var datos = { centro:d.centro, tienda:dg.tienda, dir:dg.dir, tel:dg.tel, km:dg.km, tr:dg.tr, job:d.job, descripcion:d.descripcion };
   _rellenarFormulario(datos);
   if (d.pedido) ocultarLectura();
 }
