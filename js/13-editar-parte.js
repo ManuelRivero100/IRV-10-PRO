@@ -75,6 +75,7 @@ function setLink(v,btn){
   $('modeNo').style.display=v==='Si'?'none':'block';
   $('modeSi').style.display=v==='No'?'none':'block';
   _actualizarTodosEnlazanVisibilidad();
+  _aplicarTrayecto();
 }
 
 var curOrigen='nave';
@@ -82,9 +83,51 @@ function setOrigen(v,btn){
   curOrigen=v; $('origen').value=v;
   document.querySelectorAll('#origTgl button').forEach(function(b){ b.classList.remove('active'); });
   if(btn) btn.classList.add('active');
-  $('modeNave').style.display=v==='otro'?'none':'block';
-  $('modeOtroPunto').style.display=v==='otro'?'block':'none';
+  _aplicarTrayecto();
+  if(v==='otro'){ var _hh=$('otroLlegadaHacia'); if(_hh && !_hh.value.trim() && _editIdx===null) _hh.value='Taller'; _actualizarVueltaTaller(); }
 }
+// ===== "Otro punto" con enlace entre tiendas y regreso al "Taller" =====
+// Con "Otro punto" ya NO desaparece el enlace entre tiendas: se puede elegir Sin enlace / Con enlace, y el enlace automatico (parte anterior del dia
+// enlazado con esta tienda) funciona igual que desde la nave, con las mismas reglas de cuenta. Solo cambia de donde sale la ida ("Partida desde").
+// "Llegada hacia" sale con "Taller". Mientras diga Taller (o Nave) y la tienda conocida tenga km y desplazamiento en la Agenda, los km y minutos de la
+// vuelta salen solos y BLOQUEADOS; si el texto cambia (el regreso es a otro sitio) se vacian, se desbloquean y se escriben a mano (no se guardan en la Agenda).
+function _normTextoTaller(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g'),'').replace(/ +/g,' ').trim(); }
+function _otroHaciaEsTaller(txt){ var t=_normTextoTaller(txt); return t==='taller' || t==='nave'; }
+function _aplicarTrayecto(){
+  var otro=(curOrigen==='otro'), L=curLink;
+  var d=function(id,v){ var el=$(id); if(el) el.style.display=v?'block':'none'; };
+  d('modeNave',true);
+  d('lnkToggleDiv', L!=='Auto');
+  d('modeNo', !otro && L!=='Si' && L!=='Auto');
+  d('modeSi', L==='Si');
+  d('modeAuto', L==='Auto');
+  d('modeOtroPunto', otro);
+  d('otroDesdeBox', otro && L!=='Auto');
+  d('otroIdaBox', otro && L==='No');
+  d('otroHaciaBox', otro && (L==='No' || L==='Auto'));
+  d('otroVueltaBox', otro && L==='No');
+  _actualizarVueltaTaller();
+}
+function _actualizarVueltaTaller(){
+  var kmV=$('kmOtroVuelta'), trV=$('trOtroVuelta'), kmA=$('kmA'), trA=$('trA'), hacia=$('otroLlegadaHacia');
+  if(!kmV||!trV||!kmA||!trA||!hacia) return;
+  if(window._modoSimulacion) return; // el comparador de calculo (app nueva) recalcula con los datos guardados: no se autorrellena nada
+  var soltar=function(el){ if(el._taller){ el.value=''; el._taller=false; el.readOnly=false; el.style.background=''; el.style.color=''; } };
+  var aplica=(curOrigen==='otro' && (curLink==='No' || curLink==='Auto') && _editIdx===null);
+  if(!aplica){ [kmV,trV,kmA,trA].forEach(soltar); return; }
+  var par=(curLink==='Auto')?[kmA,trA]:[kmV,trV], otroPar=(curLink==='Auto')?[kmV,trV]:[kmA,trA];
+  soltar(otroPar[0]); soltar(otroPar[1]);
+  var centro=($('centro').value||'').trim();
+  var ag=centro?agendaBuscar(curCliente?curCliente.id:'mercadona',centro):null;
+  var conocida=!!(ag && ag.km!=null && ag.km!=='' && ag.tr!=null && ag.tr!=='');
+  if(_otroHaciaEsTaller(hacia.value) && conocida){
+    [[par[0],ag.km],[par[1],ag.tr]].forEach(function(p){
+      var el=p[0]; if(String(el.value)!==String(p[1])) el.value=p[1];
+      el._taller=true; el.readOnly=true; el.style.background='var(--surface2)'; el.style.color='var(--text2)';
+    });
+  } else { soltar(par[0]); soltar(par[1]); }
+}
+setInterval(function(){ try{ if(curOrigen==='otro') _actualizarVueltaTaller(); }catch(e){} }, 700);
 
 // Busca si ya existe una pareja de tiendas guardada (tienda actual + tienda destino) —
 // si existe, autorrellena y bloquea km/despl. de salida (exclusivos de esa pareja); si no,
@@ -441,6 +484,10 @@ function _subirParteAFirestore(parte, razon){
     if(parte.origen!=='otro'){
       _subirAgendaEntry(parte.clienteId, parte.centro, parte.tienda, parte.dir, parte.tel, parte.km, parte.tr);
       _completarAgendaFaltantes(parte.clienteId, parte.centro, parte.km, parte.tr);
+    } else if(parte.linkType!=='Si' && _otroHaciaEsTaller(parte.otroLlegadaHacia)){
+      // "Otro punto" con regreso a la nave/taller: ese regreso SI es la distancia de la tienda a la nave (el km de la partida desde otro sitio, nunca).
+      var _kvT=(parte.linkType==='Auto')?parte.km:parte.otroKmVuelta, _tvT=(parte.linkType==='Auto')?parte.tr:parte.otroTrVuelta;
+      if(_kvT){ _subirAgendaEntry(parte.clienteId, parte.centro, parte.tienda, parte.dir, parte.tel, _kvT, _tvT); _completarAgendaFaltantes(parte.clienteId, parte.centro, _kvT, _tvT); }
     }
   }catch(e){ _marcarPendienteSync(parte, true); }
 }

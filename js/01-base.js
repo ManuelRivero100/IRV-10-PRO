@@ -26,7 +26,7 @@ PROTOCOLOS EXISTENTES
 3. TRAYECTORIA — setOrigen(), setLink(), checkAutoEnlace(), resetAE(), _activarEnlaceAuto()
    - Origen: Desde la nave (normal) / Otro punto (ida y vuelta manuales, no sale de la nave)
    - "Desde la nave" tiene 3 modos de enlace: No / Si / Auto (detecta parte anterior del mismo día)
-   - "Otro punto" NO usa enlace — checkAutoEnlace() se sale sin hacer nada si curOrigen==='otro'
+   - "Otro punto" ya admite enlace entre tiendas (ver _aplicarTrayecto); checkAutoEnlace() funciona igual con cualquier origen
    - Auto-enlace se activa de 2 formas (checkAutoEnlace()): (1) por tienda destino ya anunciada
      — si el parte anterior declaró "Con enlace" hacia el Nº de centro que se acaba de escribir,
      enlaza al instante sin mirar la hora (más fiable en trayectos largos); (2) si no hay destino

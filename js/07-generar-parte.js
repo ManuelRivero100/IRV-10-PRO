@@ -256,11 +256,13 @@ function generarCore(){
   // generar. checkAutoEnlace() ya protege un enlace manual 'Sí' (early-return) y excluye
   // Servicios y Reparaciones, así que es seguro llamarla aquí sin distinguir cliente/flujo.
   checkAutoEnlace();
+  _actualizarVueltaTaller();
 
   var kmT=0,trI=0,trO=0,kmDG=0,trDG=0,heG=0,kmG=0,trG=0;
   var _notaEnlace='';
+  var _otroDesde='', _otroHacia='';
   var _origenPedidoAuto=null, _origenCentroAuto=null;
-  if(curOrigen==='otro'){
+  if(curOrigen==='otro' && curLink==='No'){
     if(!$('kmOtroIda').value||!$('trOtroIda').value||!$('kmOtroVuelta').value||!$('trOtroVuelta').value){ showMsg('msgForm','Indica km y despl. de ida y vuelta.','error'); return; }
     var kOI=+$('kmOtroIda').value, tOI=rQ(+$('trOtroIda').value);
     var kOV=+$('kmOtroVuelta').value, tOV=rQ(+$('trOtroVuelta').value);
@@ -296,6 +298,12 @@ function generarCore(){
     if(same.length && same[same.length-1].tienda) _notaEnlace='Desplazamiento Desde '+same[same.length-1].tienda;
     if(same.length){ _origenPedidoAuto=same[same.length-1].pedido||null; _origenCentroAuto=same[same.length-1].centro||null; }
   }
+  if(curOrigen==='otro' && curLink!=='No'){
+    // "Otro punto" con enlace: se anota de donde sale (enlace manual) o hacia donde llega (enlace automatico) junto al texto del enlace
+    _otroDesde=(curLink==='Si' && $('otroPartidaDesde'))?$('otroPartidaDesde').value.trim():'';
+    _otroHacia=(curLink==='Auto' && $('otroLlegadaHacia'))?$('otroLlegadaHacia').value.trim():'';
+    _notaEnlace=[(_otroDesde?'Partida desde '+_otroDesde:''), _notaEnlace, (_otroHacia?'Llegada hacia '+_otroHacia:'')].filter(Boolean).join(' '+String.fromCharCode(183)+' ');
+  }
   var kmTBase=kmT;
   var _nCoches=Math.max(1,+$('ncoches').value||1);
   var _todosEnlazan = $('todosEnlazan') ? $('todosEnlazan').value!=='No' : true;
@@ -323,7 +331,7 @@ function generarCore(){
   kmT = kmT + kmAdic;
 
   var tlK='',tlT='',tlS='';
-  if(curOrigen==='otro'){ tlK=tl(arr-trI,arr)+' &middot; '+fmt(kOI)+' km'; tlT=tl(arr,lea)+' Tienda'; tlS=tl(lea,lea+trO)+' &middot; '+fmt(kOV)+' km'; }
+  if(curOrigen==='otro' && curLink==='No'){ tlK=tl(arr-trI,arr)+' &middot; '+fmt(kOI)+' km'; tlT=tl(arr,lea)+' Tienda'; tlS=tl(lea,lea+trO)+' &middot; '+fmt(kOV)+' km'; }
   else if(curLink==='No'){ var ku=(kmT-kmAdic)/2; tlK=tl(arr-trI,arr)+' &middot; '+fmt(ku)+' km'; tlT=tl(arr,lea)+' Tienda'; tlS=tl(lea,lea+trO)+' &middot; '+fmt(ku)+' km'; }
   else if(curLink==='Si'){ var kev=+$('kmE').value,ksm=kmDG>0?kev:+$('kmS').value; tlK=tl(arr-trI,arr)+' &middot; '+fmt(kev)+' km'; tlT=tl(arr,lea)+' Tienda'; tlS=tl(lea,lea+trO)+' &middot; '+fmt(ksm)+' km'; }
   else if(curLink==='Auto'){ var kAv=+$('kmA').value,kd=aeData?aeData.kmDif:0,td2=aeData?aeData.trDif:0; tlK=(td2>0)?tl(arr-trI,arr)+' &middot; '+fmt(kd)+' km':''; tlT=tl(arr,lea)+' Tienda'; tlS=tl(lea,lea+trO)+' &middot; '+fmt(kAv)+' km'; }
@@ -689,6 +697,7 @@ function resetearEstadoCompleto(){
   $('modeNave').style.display='block';
   $('modeOtroPunto').style.display='none';
   $('origen').value='nave';
+  _aplicarTrayecto();
   $('abn').classList.remove('show');
   $('acOrden').classList.remove('show');
   $('acCentro').classList.remove('show');
@@ -740,7 +749,7 @@ function nuevo(){
   $('workersRol').style.display='none'; $('workersList').innerHTML='';
   $('modeNo').style.display='block'; $('modeSi').style.display='none'; $('modeAuto').style.display='none';
   $('modeNave').style.display='block'; $('modeOtroPunto').style.display='none'; $('origen').value='nave';
-  $('lnkToggleDiv').style.display='block'; $('abn').classList.remove('show');
+  $('lnkToggleDiv').style.display='block'; $('abn').classList.remove('show'); _aplicarTrayecto();
   $('acOrden').classList.remove('show'); $('acCentro').classList.remove('show');
   $('msgForm').className='msg'; $('out').innerHTML=''; window.recTmp=null;
   $('gbtn').textContent='\u{1F4BE} Guardar parte'; $('gbtn').disabled=false; $('gbtn').style.opacity='1';

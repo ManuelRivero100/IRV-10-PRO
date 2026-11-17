@@ -364,7 +364,6 @@ function fmtH(v){
 }
 
 function checkAutoEnlace(){
-  if(curOrigen==='otro') return; // trayecto libre, no sale de la nave — el enlace no aplica
   if(curLink==='Si') return; // nunca sobrescribir un enlace manual ya elegido por el técnico
   if(curLink==='Auto') return; // ya está en modo Auto — no repetir el autorrelleno de kmA/trA,
                                  // que sobrescribiría un valor que el técnico ya corrigió a mano
@@ -413,6 +412,7 @@ function _activarEnlaceAuto(last){
     if(!$('trA').value) $('trA').value=$('tr').value||'';
     _bloquearCamposAutorrellenados();
     aeData={kmDif:last.kmDif||0,trDif:last.trDif||0};
+    _aplicarTrayecto();
     // Con enlace, el km/despl. de salida del segundo parte es el trayecto REAL de regreso
     // — nunca debe sugerirse con un dato del parte anterior (eso sería aplicar la lógica
     // de "sin enlace" a un caso con enlace). El técnico introduce el valor real.
@@ -754,6 +754,7 @@ function resetAE(){
   var isSi=curLink==='Si';
   $('modeNo').style.display=isSi?'none':'block'; $('modeSi').style.display=isSi?'block':'none';
   if(curLink==='Auto'){ curLink='No'; $('link').value='No'; }
+  _aplicarTrayecto();
   aeData=null;
 }
 

@@ -181,9 +181,9 @@ function _bloquearCamposAutorrellenados(){
   });
 }
 function _desbloquearCamposAutorrellenados(){
-  ['centro','tienda','dir','tel','km','tr','kmA','trA','kmS','trS','enlaceDestino'].forEach(function(id){
+  ['centro','tienda','dir','tel','km','tr','kmA','trA','kmS','trS','enlaceDestino','kmOtroVuelta','trOtroVuelta'].forEach(function(id){
     var el=$(id);
-    if(el){ el.readOnly=false; el.style.background=''; el.style.color=''; }
+    if(el){ el._taller=false; el.readOnly=false; el.style.background=''; el.style.color=''; }
   });
 }
 // Al editar un parte ya guardado, estos campos identifican DE QUÉ parte se trata (misma
@@ -257,6 +257,7 @@ function _rellenarFormulario(datos){
   var acO=$('acOrden'); if(acO) acO.classList.remove('show');
   var acC=$('acCentro'); if(acC) acC.classList.remove('show');
   _bloquearCamposAutorrellenados();
+  _actualizarVueltaTaller();
 }
 // Incidencia de un cliente NO Mercadona abierta con el nº de parte "0000" (la misma excepción de generar()):
 // cada parte nuevo de esa incidencia sale con "0000" ya escrito. El técnico puede cambiarlo; si pone otro
