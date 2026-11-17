@@ -88,7 +88,8 @@ async function dispositivosAdmin() {
 }
 
 async function avisarAdmins(aviso) {
-  const docs = await dispositivosAdmin();
+  // aviso.excluir: personas que NO deben recibirlo (p.ej. el autor de un parte no recibe el aviso de su propio parte).
+  const docs = L.sinDispositivosDe(await dispositivosAdmin(), aviso.excluir);
   if (!docs.length) return;
   const n = await contarPanelAdmin();
   await enviar(docs, JSON.stringify({ titulo: aviso.titulo, texto: aviso.texto, n: n, para: 'admin' }));

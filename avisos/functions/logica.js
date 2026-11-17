@@ -101,7 +101,19 @@ function avisoAdminParte(d) {
   if (!d) return null;
   const tecs = (Array.isArray(d.tecnicos) ? d.tecnicos : []).map(function (t) { return typeof t === 'string' ? t : ((t && t.nombre) || ''); }).filter(Boolean);
   const quien = tecs.length ? tecs.join(', ') : (d.tecnicoPrincipal || '');
-  return { titulo: 'Parte nuevo', texto: unir([d.tienda, d.pedido ? 'Orden ' + d.pedido : '', quien]) };
+  // El autor del parte (el primero de la lista, o el tecnico principal) no recibe el aviso de SU propio parte aunque sea administrador.
+  const autor = tecs.length ? tecs[0] : (d.tecnicoPrincipal || '');
+  return { titulo: 'Parte nuevo', texto: unir([d.tienda, d.pedido ? 'Orden ' + d.pedido : '', quien]), excluir: autor ? [autor] : [] };
+}
+// Nombre comparable: sin mayusculas, tildes ni espacios de mas.
+function nombreNorm(s) {
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(new RegExp('[' + String.fromCharCode(768) + '-' + String.fromCharCode(879) + ']', 'g'), '').replace(/ +/g, ' ').trim();
+}
+// Quita de la lista de moviles (documentos de dispositivosPush) los de las personas indicadas.
+function sinDispositivosDe(docs, nombres) {
+  const ex = (nombres || []).map(nombreNorm).filter(Boolean);
+  if (!ex.length) return docs;
+  return docs.filter(function (x) { return ex.indexOf(nombreNorm((x.data() || {}).tecnico)) < 0; });
 }
 
 // ---- Recordatorio de las 17:00: tecnico que no ha llenado su registro de horas de hoy ----
@@ -177,5 +189,5 @@ module.exports = {
   finJornadaMin, minutoRecordatorio, debeRecordarHoras,
   incidenciaSinIniciar, tareaSinIniciar, avisarIncidencia, avisarTarea,
   avisoAdminIncidencia, avisoAdminTarea, avisoAdminNotificacion, avisoAdminMaterial,
-  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, avisoAdminParte, numeroOrden, contadorTrasLiberar, MIN_SIN_GUARDAR_MS
+  parteSinGuardarParaAvisar, avisoAdminParteSinGuardar, avisoAdminParte, nombreNorm, sinDispositivosDe, numeroOrden, contadorTrasLiberar, MIN_SIN_GUARDAR_MS
 };
