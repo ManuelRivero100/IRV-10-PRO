@@ -936,8 +936,8 @@ function horasRenderControl(){
 }
 
 // ----- Tabulador (administrador): precios por ítem de cada tabulador y tabulador de cada técnico -----
-// Los precios nunca son retroactivos: cada tabulador y cada asignación guardan versiones con fecha "desde"
-// (no anterior a hoy); el pasado conserva lo que valía entonces. Todo empieza en 0 €.
+// Cada tabulador y cada asignacion guardan versiones con fecha "desde". Se puede poner una fecha pasada (desde el 01/01/2026): los importes se calculan
+// al mostrarlos con la version vigente de cada dia, asi que los dias desde esa fecha se recalculan solos. Todo empieza en 0 EUR.
 var TAB_ITEMS=['Normal','Extra','Nocturna','Festiva','Dieta'];
 var TAB_ROTULOS={Normal:'Hora Normal (€/h)', Extra:'Hora Extra (€/h)', Nocturna:'Hora Nocturna (€/h)', Festiva:'Hora Festiva (€/h)', Dieta:'Dieta (€ por dieta)'};
 var TAB_INICIALES=['Peón 1','Peón 2','Oficial 1','Oficial 2'];
@@ -949,7 +949,7 @@ var _horasTabSembrado=false;
 function tabSlug(n){
   return String(n||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 }
-function tabFechaMinima(){ return hoy(); }
+function tabFechaMinima(){ return '2026-01-01'; }
 function tabFechaFmt(f){ return f==='1970-01-01' ? 'el inicio' : f.split('-').reverse().join('/'); }
 function tabVigente(versiones, fecha){
   var vig=null;
@@ -1032,7 +1032,7 @@ function horasRenderTab(){
       return '<div class="field"><label>'+TAB_ROTULOS[k]+'</label><input id="hTabV_'+k+'" type="number" step="0.01" min="0" inputmode="decimal" value="'+(val[k]||0)+'"></div>';
     }).join('')+'</div>'
       +'<div class="field"><label>Vigente desde</label><input id="hTabDesde" type="date" value="'+hoyS+'" min="'+tabFechaMinima()+'"></div>'
-      +'<div style="font-size:.78rem;color:var(--text2);margin:-4px 0 10px;">Los días anteriores a esa fecha conservan el precio que tenían.</div>'
+      +'<div style="font-size:.78rem;color:var(--text2);margin:-4px 0 10px;">Los días anteriores a esa fecha conservan el precio que tenían. Puedes poner una fecha pasada: los importes de los días desde esa fecha se recalculan.</div>'
       +'<div class="msg" id="hTabMsg"></div>'
       +'<button class="btn btn-p" onclick="horasTabGuardarPrecios(\''+s.id+'\')">&#128190; Guardar precios</button>'
       +'<div style="font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:16px 2px 6px;">Historial de precios</div>'
@@ -1073,10 +1073,21 @@ function horasRenderTab(){
 
 function _horasTabValidarFecha(desde){
   if(!desde){ showMsg('hTabMsg','Falta la fecha desde la que vale.','error'); return false; }
-  if(desde<tabFechaMinima()){ showMsg('hTabMsg','Los cambios no pueden ser retroactivos: elige hoy o una fecha posterior.','error'); return false; }
+  if(desde<tabFechaMinima()){ showMsg('hTabMsg','La fecha no puede ser anterior al '+tabFechaFmt(tabFechaMinima())+'.','error'); return false; }
   return true;
 }
 
+// Poner precios o un tabulador con una fecha PASADA recalcula los importes de los dias desde esa fecha (los importes se calculan al mostrarlos, con la
+// version vigente de cada dia). Se pide confirmacion y se avisa de los cambios posteriores, que se mantienen para sus dias.
+function _horasTabRetroOk(lista, desde, reintentar){
+  if(desde>=hoy()) return true;
+  if(window._tabRetroConfirmado){ window._tabRetroConfirmado=false; return true; }
+  var post=(lista||[]).filter(function(x){ return x.desde>desde && x.desde!=='1970-01-01'; }).map(function(x){ return tabFechaFmt(x.desde); });
+  var txt='Vas a aplicar este cambio desde el '+tabFechaFmt(desde)+', una fecha pasada: los importes de los días desde esa fecha se recalcularán.'
+    +(post.length ? ' Ya hay cambios desde '+post.join(', ')+': esos días conservan lo suyo.' : '')+' ¿Continuar?';
+  _confirmarApp(txt, function(){ window._tabRetroConfirmado=true; reintentar(); });
+  return false;
+}
 function horasTabAgregar(){
   if(!_horasEsAdmin() || !_horasTabDatos) return;
   var nombre=($('hTabNuevo').value||'').trim();
@@ -1103,6 +1114,7 @@ function horasTabGuardarPrecios(id){
   var tab=_horasTabDatos.tabs[id], desde=$('hTabDesde').value, valores={};
   if(!tab) return;
   if(!_horasTabValidarFecha(desde)) return;
+  if(!_horasTabRetroOk(tab.versiones, desde, function(){ horasTabGuardarPrecios(id); })) return;
   for(var i=0; i<TAB_ITEMS.length; i++){
     var k=TAB_ITEMS[i], raw=String($('hTabV_'+k).value||'').replace(',','.').trim();
     var v=raw==='' ? 0 : parseFloat(raw);
@@ -1128,6 +1140,7 @@ function horasTabGuardarTecnico(i){
   if(!nombre) return;
   var id=tabSlug(nombre), sel=$('hTecSel_'+i).value, desde=$('hTecDesde_'+i).value;
   if(!_horasTabValidarFecha(desde)) return;
+  if(!_horasTabRetroOk(((_horasTabDatos.asig[id]||{}).historial)||[], desde, function(){ horasTabGuardarTecnico(i); })) return;
   var a=_horasTabDatos.asig[id];
   var hist=((a && a.historial) || []).filter(function(x){ return x.desde!==desde; });
   hist.push({desde:desde, tabuladorId:sel||null, creadoPor:window._sesion.nombre, fecha:Date.now()});
