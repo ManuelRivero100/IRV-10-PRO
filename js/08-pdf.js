@@ -90,9 +90,10 @@ function pdfGroupTitle(doc,y,txt){
   return y+6;
 }
 
-function pdfInfoRow(doc,y,label,val){
+// der: dato de la derecha de la fila (la cantidad de un material), tal como sale en la pantalla
+function pdfInfoRow(doc,y,label,val,der){
   if(!val) return y;
-  var lines=doc.splitTextToSize(val,_PDF.cW-_PDF.RC-4);
+  var lines=doc.splitTextToSize(val,_PDF.cW-_PDF.RC-4-(der?12:0));
   var h=Math.max(_PDF.RH, lines.length*4+4);
   y=pdfCheck(doc,y,h+1);
   doc.setFillColor(_PDF.bgSurf2[0],_PDF.bgSurf2[1],_PDF.bgSurf2[2]);
@@ -107,6 +108,7 @@ function pdfInfoRow(doc,y,label,val){
   doc.setFontSize(7.5); doc.setFont('helvetica','normal');
   doc.setTextColor(_PDF.textW[0],_PDF.textW[1],_PDF.textW[2]);
   doc.text(lines,_PDF.mg+_PDF.RC+3,y+5);
+  if(der){ doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text(der,_PDF.mg+_PDF.cW-3,y+5,{align:'right'}); }
   return y+h+0.5;
 }
 
@@ -390,7 +392,7 @@ function pdfFilaParte(doc,y,el,texto){
   var elPrecio=el.querySelector('.rp')||(spans.length>3?spans[3]:null);
   var precio=elPrecio?texto(elPrecio):'';
   if(el.classList.contains('tipo-row')) return pdfTipoRow(doc,y,rl);
-  if(el.classList.contains('info-row')) return pdfInfoRow(doc,y,rc.toUpperCase(),rl);
+  if(el.classList.contains('info-row')) return pdfInfoRow(doc,y,rc.toUpperCase(),rl,rv);
   if(el.classList.contains('obs-row')) return pdfNotaRow(doc,y,rl,rc.toUpperCase()||'OBS.',_PDF.amber,_PDF.amberLt);   // la etiqueta es la de la fila: "Obs." o "Auto"
   if(el.classList.contains('total-row')){
     y=precio?pdfTotalRowConPrecio(doc,y,rv,precio):pdfTotalRow(doc,y,rv);

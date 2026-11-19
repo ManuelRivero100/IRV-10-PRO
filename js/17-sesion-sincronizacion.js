@@ -1022,6 +1022,15 @@ function guardarAsignacion() {
   if (!_asgTec) { showMsg('asgMsg','Falta: Técnico principal (toca uno de los botones).','error'); _irAlCampo('asgTecTgl'); return; }
   if (!$('asgDescripcion').value.trim()) { showMsg('asgMsg','Falta: Descripción de lo que hay que hacer.','error'); _irAlCampo('asgDescripcion'); return; }
 
+  // Numero de orden como en el formulario del parte: los clientes que no son Mercadona y las "Obras" de Mercadona llevan SIEMPRE un numero IRV propio.
+  // Si no se escribio ninguno, se genera aqui (nextIRV) para que la asignacion y su parte sean la MISMA orden. Antes la asignacion se guardaba sin numero,
+  // el parte generaba otro IRV y creaba una incidencia aparte, y la asignacion se quedaba pendiente para siempre. Mercadona con otros trabajos: el numero
+  // es suyo y se escribe a mano (no cambia).
+  // Mercadona (salvo Obras) da su propio numero de orden: sin el no se puede crear la asignacion, porque luego el parte no podria enlazar con ella.
+  if (curCliente.tipo==='mercadona' && _asgJob!=='Obras' && !pedido) { showMsg('asgMsg','Falta: Nº orden (en Mercadona lo da Mercadona; solo con Obras se genera un IRV solo).','error'); _irAlCampo('asgPedido'); return; }
+  var _irvGenerado=false;
+  if(!pedido && (curCliente.tipo!=='mercadona' || _asgJob==='Obras')){ pedido=nextIRV(); _irvGenerado=true; }
+
   function _guardar(refLegado){
     var data = {
       clienteId: curCliente.id,
@@ -1046,7 +1055,11 @@ function guardarAsignacion() {
       : pedido ? _db.collection('incidencias').doc(incidenciaId(data.centro, pedido)).set(data)
       : _db.collection('incidencias').add(data);
     _guardarPromise.then(function(){
-      showMsg('asgMsg','✓ Incidencia asignada.','success');
+      if(_irvGenerado){   // el numero generado ya queda usado: el contador avanza ahora (como al guardar un parte) para que la siguiente asignacion no lo repita
+        try{ var _nIrv=parseInt(String(pedido).replace('IRV-',''),10)+1, _lIrv=+(localStorage.getItem('pm_siguiente_irv')||0); if(_nIrv>_lIrv) localStorage.setItem('pm_siguiente_irv',String(_nIrv)); }catch(e){ _fallo('guardarAsignacion contador local')(e); }
+        _avanzarContadorIRV(pedido);
+      }
+      showMsg('asgMsg','✓ Incidencia asignada.'+(_irvGenerado?' N'+String.fromCharCode(186)+' '+pedido+'.':''),'success');
       _subirAgendaEntry(data.clienteId, data.centro, data.tienda, data.dir, data.tel, data.km, data.tr);
       $('asgPedido').value=''; $('asgCentro').value=''; $('asgTienda').value=''; $('asgDir').value=''; $('asgTel').value=''; $('asgKm').value=''; $('asgTr').value=''; $('asgDescripcion').value='';
       _asgJob=''; _asgTec='';
