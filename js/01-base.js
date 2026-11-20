@@ -175,12 +175,7 @@ function goTo(id){
     refreshCounts(); renderHistTecBtns(); renderSearchResults();
   }
   if(id==='w-stats') statsInit();
-  if(id==='w-catalogo'){
-    // Siempre se abre en la pestaña Materiales: se oculta también la pestaña en la que se salió (Técnicos, Agenda…), que si no quedaba a la vista junto a Materiales
-    var pestMat=document.querySelector('#w-catalogo .cat-tab');
-    if(pestMat) catTab('materiales',pestMat);
-    catActualizarBadge();
-  }
+  if(id==='w-catalogo'){ catMostrarMenu(); }
   if(id==='w-clientes'){
     curCliente=null;
     $('hdr-sub').textContent='Selecciona un cliente';

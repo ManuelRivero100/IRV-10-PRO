@@ -483,6 +483,7 @@ function catActualizarBadge(){
   if(ab){ var np=agendaPendientesCount(); ab.textContent=np; ab.style.display=np>0?'inline-block':'none'; }
   var amb=$('catMatFlotanteBadge');
   if(amb){ amb.textContent=pendMatFlotante; amb.style.display=pendMatFlotante>0?'inline-block':'none'; }
+  if(!_catSeccion) renderCatMenu();
 }
 function _agDomId(key){ return key.replace(/[^a-zA-Z0-9]/g,'_'); }
 

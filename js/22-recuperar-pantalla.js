@@ -138,10 +138,11 @@ function _restaurarHoras(c){
 function _capturarCatalogo(){
   var activa = document.querySelector('.cat-tab.active');
   var m = activa && (activa.getAttribute('onclick') || '').match(/catTab\('([a-z]+)'/);
-  return { tab: m ? m[1] : 'materiales', nav: _catNav };
+  return { tab: m ? m[1] : 'materiales', nav: _catNav, menu: !_catSeccion };
 }
 function _restaurarCatalogo(c){
   if (!c) return;
+  if (c.menu) return; // estaba en el menu del catalogo: goTo ya lo muestra
   var btn = [].slice.call(document.querySelectorAll('.cat-tab')).filter(function(b){ return (b.getAttribute('onclick') || '').indexOf("catTab('" + c.tab + "'") >= 0; })[0];
   if (btn && c.tab !== 'materiales') catTab(c.tab, btn);
   if (c.tab === 'materiales' && c.nav) { _catNav = c.nav; catNavRender(); }

@@ -417,9 +417,57 @@ function _volverACatalogoClientes(){
   goTo('w-catalogo');
   var b=$('catTabBtnClientes'); if(b) catTab('clientes',b);
 }
+// Catalogo como la pantalla inicial: un icono por apartado; al tocar uno se abre su pantalla entera ("Atras" vuelve a este menu e "Inicio" a la pantalla inicial).
+var _catSeccion=null;
+var _CAT_APARTADOS=[
+  {id:'materiales',ico:'&#128295;',nom:'Materiales',badge:'catMatFlotanteBadge'},
+  {id:'conceptos',ico:'&#9201;&#65039;',nom:'Conceptos'},
+  {id:'tecnicos',ico:'&#128119;',nom:'T&eacute;cnicos'},
+  {id:'agenda',ico:'&#128220;',nom:'Agenda',badge:'catAgendaBadge'},
+  {id:'clientes',ico:'&#128101;',nom:'Clientes'}
+];
+function renderCatMenu(){
+  var el=$('catMenu'); if(!el) return;
+  el.innerHTML='';
+  _CAT_APARTADOS.forEach(function(a){
+    var div=document.createElement('div');
+    div.className='app-icon';
+    var img=document.createElement('div');
+    img.className='app-icon-img ico-other';
+    img.innerHTML=a.ico;
+    div.appendChild(img);
+    var src=a.badge?$(a.badge):null, n=src?(+src.textContent||0):0;
+    if(n>0){
+      var b=document.createElement('span');
+      b.className='app-badge';
+      b.textContent=n;
+      div.appendChild(b);
+    }
+    var l=document.createElement('span');
+    l.className='app-icon-label';
+    l.innerHTML=a.nom;
+    div.appendChild(l);
+    div.addEventListener('click',function(){ catAbrirApartado(a.id); });
+    el.appendChild(div);
+  });
+}
+function catAbrirApartado(id){
+  var btn=document.querySelector(".cat-tab[onclick*=\"catTab('"+id+"'\"]");
+  if(btn) catTab(id,btn);
+}
+function catMostrarMenu(){
+  ['catTabMat','catTabConc','catTabTec','catTabAgenda','catTabClientes','catFamiliaView'].forEach(function(i){ var e=$(i); if(e) e.style.display='none'; });
+  _catSeccion=null;
+  var m=$('catMenu'); if(m) m.style.display='';
+  var bi=$('catBtnInicio'); if(bi) bi.style.display='none';
+  catActualizarBadge();
+  renderCatMenu();
+}
+function _catAtras(){ if(_catSeccion) catMostrarMenu(); else goTo('w-clientes'); }
 function catTab(tab,btn){
   document.querySelectorAll('.cat-tab').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
+  _catSeccion=tab; var cm=$('catMenu'); if(cm) cm.style.display='none'; var cbi=$('catBtnInicio'); if(cbi) cbi.style.display='';
   var m=$('catTabMat'),c=$('catTabConc'),f=$('catFamiliaView'),tc=$('catTabTec'),ag=$('catTabAgenda');
   m.style.display=tab==='materiales'?'block':'none';
   c.style.display=tab==='conceptos'?'block':'none';
