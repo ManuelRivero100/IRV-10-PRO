@@ -177,7 +177,7 @@ function _fhAbrirHora(inp){
   _fhS.inp=inp;
   var hs='<div class="fh-t">Hora</div>', ms='<div class="fh-t">Minutos</div>', i;
   for(i=0;i<24;i++) hs+='<div class="fh-i" data-n="'+i+'" onclick="_fhElegirHora('+i+')">'+_fhP2(i)+'</div>';
-  for(i=0;i<60;i++) ms+='<div class="fh-i" data-n="'+i+'" onclick="_fhElegirMin('+i+')">'+_fhP2(i)+'</div>';
+  for(i=0;i<60;i+=15) ms+='<div class="fh-i" data-n="'+i+'" onclick="_fhElegirMin('+i+')">'+_fhP2(i)+'</div>';
   var d=_fhDialogo('dlgFhHora',
     '<div class="dialogo-titulo" id="fhHTit"></div>'
     +'<div class="fh-grande" id="fhHG"></div>'
@@ -186,7 +186,7 @@ function _fhAbrirHora(inp){
   document.getElementById('fhCH').innerHTML=hs; document.getElementById('fhCM').innerHTML=ms;
   document.getElementById('fhHTit').textContent=_fhTitulo(inp,'Hora');
   var m=/^(\d{1,2}):(\d{2})/.exec(inp.value||''), ahora=new Date();
-  _fhS.hh=m?+m[1]:ahora.getHours(); _fhS.mm=m?+m[2]:ahora.getMinutes();
+  _fhS.hh=m?+m[1]:ahora.getHours(); _fhS.mm=m?+m[2]:Math.floor(ahora.getMinutes()/15)*15;
   document.getElementById('fhQuitarH').style.display=(_fhObligatorio(inp)||!inp.value)?'none':'';
   d.classList.add('show');
   _fhPintarHora(true);
