@@ -268,6 +268,7 @@ function _restaurarPantalla(p){
       seleccionarCliente(p.cli);
       if (!curCliente) return; // el cliente ya no existe: se queda en el inicio
     }
+    if (p.win === 'w-obras') { $('hdr-sub').textContent = 'Obras'; goToRaw('w-obras'); return; }
     if (p.win === 'w-clientes' || p.win === 'w-menu') return;
     var def = _PANTALLAS[p.win];
     if (!def && !p.cli) return;

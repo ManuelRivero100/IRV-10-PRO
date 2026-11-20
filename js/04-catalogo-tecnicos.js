@@ -398,6 +398,25 @@ function _esTecnicoSinPrincipal(){
   return !!(t && t.principal!==true);
 }
 
+// Catalogo > Clientes: aqui se anaden y se eliminan los clientes (la pantalla inicial y la de Obras ya no llevan "x" ni "Anadir").
+function renderCatClientes(){
+  var el=$('catClientesList'); if(!el) return;
+  var lista=getClientes();
+  var tipoTxt=function(c){ return c.tipo==='mercadona'?'Mercadona':(c.tipo==='particular'?'Con precio':'Obras (sin precio)'); };
+  var ico=function(c){ return c.tipo==='mercadona'?'&#127978;':(c.tipo==='particular'?'&#128100;':'&#127970;'); };
+  el.innerHTML=lista.map(function(c){
+    return '<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+      +'<span style="font-size:1.4rem;">'+ico(c)+'</span>'
+      +'<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.92rem;">'+escHtml(c.nombre)+'</div><div style="font-size:.74rem;color:var(--text2);">'+tipoTxt(c)+'</div></div>'
+      +(c.id!=='mercadona'?'<button class="btn btn-d btn-sm" data-cid="'+escHtml(c.id)+'" onclick="borrarCliente(this.getAttribute(\'data-cid\'))">&#128465;&#65039; Eliminar</button>':'')
+      +'</div>';
+  }).join('') || '<div style="font-size:.82rem;color:var(--text3);padding:10px 0;">Sin clientes.</div>';
+}
+// Vuelve al Catalogo, pestana Clientes (desde "Nuevo cliente": Atras o despues de guardar)
+function _volverACatalogoClientes(){
+  goTo('w-catalogo');
+  var b=$('catTabBtnClientes'); if(b) catTab('clientes',b);
+}
 function catTab(tab,btn){
   document.querySelectorAll('.cat-tab').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
@@ -406,10 +425,12 @@ function catTab(tab,btn){
   c.style.display=tab==='conceptos'?'block':'none';
   if(tc) tc.style.display=tab==='tecnicos'?'block':'none';
   if(ag) ag.style.display=tab==='agenda'?'block':'none';
+  var cl=$('catTabClientes'); if(cl) cl.style.display=tab==='clientes'?'block':'none';
   if(f) f.style.display='none';
   if(tab==='materiales') renderCatGrupos();
   else if(tab==='tecnicos'){ renderCatTecnicos(); _cargarPinesVisibles(); }
   else if(tab==='agenda') renderCatAgenda();
+  else if(tab==='clientes') renderCatClientes();
   else renderCatConceptos();
 }
 

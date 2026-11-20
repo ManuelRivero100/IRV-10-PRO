@@ -194,12 +194,20 @@ var _nocturnoConfirmado = false;
 var _incidenciasCache = [];
 var _averiaReportada = '';
 
+// Clientes de "Obras" = los fijos (todos menos Mercadona y los particulares). Desde su menu, "Atras" vuelve a la pantalla Obras (y "Inicio" a la inicial).
+function _clienteEsDeObras(c){ return !!c && c.tipo!=='mercadona' && c.tipo!=='particular'; }
+function _menuAtras(){
+  var deObras=_clienteEsDeObras(curCliente);
+  goTo('w-clientes');
+  if(deObras){ $('hdr-sub').textContent='Obras'; goToRaw('w-obras'); }
+}
 function seleccionarCliente(id){
   var lista=getClientes();
   curCliente=lista.find(function(c){ return c.id===id; })||null;
   if(!curCliente) return;
   $('hdr-sub').textContent=curCliente.nombre;
   renderMenu();
+  var mi=$('menuInicio'); if(mi) mi.style.display=_clienteEsDeObras(curCliente)?'':'none';
   goToRaw('w-menu');
 }
 
@@ -212,6 +220,7 @@ function borrarCliente(id){
     var h=getH().filter(function(r){ return r.clienteId!==id; });
     setH(h);
     renderClientes();
+    if(typeof renderCatClientes==='function') renderCatClientes();
   });
 }
 
@@ -260,7 +269,7 @@ function guardarNuevoCliente(){
   extra.push(c); localStorage.setItem('pm_clientes',JSON.stringify(extra));
   _subirClienteAFirestore(c);
   $('nc-nombre').value=''; ncJobsReset();
-  renderClientes(); goTo('w-clientes');
+  renderClientes(); _volverACatalogoClientes();
 }
 
 function renderMenu(){

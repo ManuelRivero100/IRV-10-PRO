@@ -6,7 +6,7 @@
 <script>// Si hay una sesión guardada, se oculta la entrada y la presentación mientras se recupera (ver js/22-recuperar-pantalla.js)
 try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList.add('recuperando'); } catch(e) {}</script>
   <link rel="manifest" href="manifest.json">
-<script src="js/00-manifest.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
+<script src="js/00-manifest.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
   <meta name="theme-color" content="#2d9e5f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   <meta name="apple-mobile-web-app-title" content="Partes IRV-10">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=yes">
 <title>Partes IRV-10</title>
-<link rel="stylesheet" href="css/estilos.css?v=build-2026-11-20a-v3-obras-y-agenda-con-cero">
+<link rel="stylesheet" href="css/estilos.css?v=build-2026-11-20d-v3-clientes-en-catalogo">
 </head>
 <body>
 <!-- PANTALLA LOGIN -->
@@ -144,10 +144,15 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
     <button class="cat-tab" onclick="catTab('conceptos',this)">&#9201; Conceptos</button>
     <button class="cat-tab" onclick="catTab('tecnicos',this)">&#128119; T&eacute;cnicos</button>
     <button class="cat-tab" onclick="catTab('agenda',this)">&#128220; Agenda<span id="catAgendaBadge" style="display:none;background:var(--amber);color:#fff;font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:20px;margin-left:5px;">0</span></button>
+    <button class="cat-tab" id="catTabBtnClientes" onclick="catTab('clientes',this)">&#128101; Clientes</button>
   </div>
   <div id="catTabMat">
     <div id="catFamiliasList"></div>
 
+  </div>
+  <div id="catTabClientes" style="display:none">
+    <div class="brow" style="margin-bottom:12px;"><button class="btn btn-p btn-full" onclick="goTo('w-nuevo-cliente')">&#43; A&ntilde;adir cliente</button></div>
+    <div id="catClientesList"></div>
   </div>
   <div id="catTabAgenda" style="display:none">
     <div style="font-size:.78rem;color:var(--text2);margin-bottom:12px;padding:8px 12px;background:var(--amber-light);border-radius:var(--r-sm);">&#9432; Sitios nuevos a&ntilde;adidos por t&eacute;cnicos, pendientes de revisar.</div>
@@ -182,7 +187,7 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
 </div>
 </div>
 <div id="w-nuevo-cliente" class="win">
-  <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
+  <div class="navrow"><button class="back" onclick="_volverACatalogoClientes()">&#8592; Atr&aacute;s</button></div>
   <div class="card">
     <div class="card-title">&#43; Nuevo cliente</div>
     <div class="field"><label>Nombre <span class="req">*</span></label><input id="nc-nombre" placeholder="Ej: Construcciones García"></div>
@@ -204,8 +209,13 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
     <div class="brow"><button class="btn btn-p btn-full" onclick="guardarNuevoCliente()">&#128190; Crear cliente</button></div>
   </div>
 </div>
-<div id="w-menu" class="win">
+<div id="w-obras" class="win">
   <div class="navrow"><button class="back" onclick="goTo('w-clientes')">&#8592; Atr&aacute;s</button></div>
+  <div class="section-label">Obras</div>
+  <div id="obrasGrid" class="app-grid"></div>
+</div>
+<div id="w-menu" class="win">
+  <div class="navrow"><button class="back" onclick="_menuAtras()">&#8592; Atr&aacute;s</button><button class="back" id="menuInicio" style="display:none" onclick="goTo('w-clientes')">&#8962; Inicio</button></div>
   <div id="menuGrid" class="app-grid"></div>
 </div>
 <div id="w-asignar" class="win">
@@ -803,21 +813,21 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script>var APP_BUILD_ID = 'build-2026-11-20a-v3-obras-y-agenda-con-cero';</script>
-<script src="js/01-base.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/02-clientes.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/03-almacen-agenda.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/04-catalogo-tecnicos.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/05-catalogo-pantallas.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/06-inicio-estadisticas.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/07-generar-parte.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/08-pdf.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/09-certificacion-asignacion.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/10-materiales.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/11-calculos-utilidades.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/12-leer-orden.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/13-editar-parte.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/14-papelera-autorrelleno.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
+<script>var APP_BUILD_ID = 'build-2026-11-20d-v3-clientes-en-catalogo';</script>
+<script src="js/01-base.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/02-clientes.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/03-almacen-agenda.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/04-catalogo-tecnicos.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/05-catalogo-pantallas.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/06-inicio-estadisticas.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/07-generar-parte.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/08-pdf.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/09-certificacion-asignacion.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/10-materiales.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/11-calculos-utilidades.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/12-leer-orden.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/13-editar-parte.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/14-papelera-autorrelleno.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
 
 <!-- DIÁLOGO NOMBRE -->
 <div class="dlg" id="dlgNombre">
@@ -876,23 +886,23 @@ try { if (localStorage.getItem('irv_sesion')) document.documentElement.classList
   </div>
 </div>
 
-<script src="js/00b-service-worker.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
+<script src="js/00b-service-worker.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
 <!-- Firebase compat — al final para garantizar carga -->
 <script src="js/lib/firebase-app-compat-10.12.0.js"></script>
 <script src="js/lib/firebase-firestore-compat-10.12.0.js"></script>
 <script src="js/lib/firebase-auth-compat-10.12.0.js"></script>
-<script src="js/15-firebase-inicio.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/16-conexion.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/17-sesion-sincronizacion.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/19-copias-seguridad.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/20-horas-adicionales.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/20b-tareas-pendientes.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/23-comparar-calculo.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/24-avisos-push.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/25-cola-envio.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/26-registro-cargas.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
-<script src="js/22-recuperar-pantalla.js?v=build-2026-11-20a-v3-obras-y-agenda-con-cero"></script>
+<script src="js/15-firebase-inicio.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/16-conexion.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/17-sesion-sincronizacion.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/19-copias-seguridad.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/20-horas-adicionales.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/21-papelera-restaurar-inicio.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/20b-tareas-pendientes.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/23-comparar-calculo.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/24-avisos-push.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/25-cola-envio.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/26-registro-cargas.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
+<script src="js/22-recuperar-pantalla.js?v=build-2026-11-20d-v3-clientes-en-catalogo"></script>
 <!-- DIÁLOGO PIN CAMBIO ROL -->
 <div class="dlg" id="dlgCambioRol">
   <div class="dlg-box" style="max-width:320px;">
