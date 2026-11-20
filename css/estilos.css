@@ -248,6 +248,8 @@ textarea{resize:vertical;min-height:72px}
 .ico-other{background:linear-gradient(145deg,#1d4ed8,#3b82f6);}
 .ico-particular{background:linear-gradient(145deg,#7c3aed,#a855f7);}
 .ico-nuevo{background:rgba(255,255,255,.12);border:2px dashed rgba(255,255,255,.25);}
+.app-icon-abierto .app-icon-img{box-shadow:0 0 0 3px rgba(255,255,255,.55),0 4px 16px rgba(0,0,0,.4);}
+.obras-panel{grid-column:1/-1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:16px 4px 10px;}
 .ico-catalogo{background:linear-gradient(145deg,#b45309,#f59e0b);}
 .ico-stats{background:linear-gradient(145deg,#0f766e,#14b8a6);}
 

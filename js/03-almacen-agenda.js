@@ -54,8 +54,11 @@ function agendaBuscar(clienteId,centro){
   var a=getAgenda();
   return a[agendaKey(clienteId,centro)]||null;
 }
+// Valor de km / desplazamiento para la Agenda: el 0 es un dato valido (p. ej. la nave, que somos nosotros) y se guarda como "0";
+// solo null, undefined y "" son "sin dato". Un numero distinto de 0 se guarda como siempre.
+function _agendaValor(v){ return (v===0||v==='0') ? '0' : (v||''); }
 function _completarAgendaFaltantes(clienteId, centro, km, tr){
-  if(!centro || !km) return; // nada que completar
+  if(!centro || _agendaValor(km)==='') return; // nada que completar (el 0 si es un dato)
   if(typeof _db === 'undefined' || !_db) return;
   clienteId=clienteId||'mercadona';
   var k=agendaKey(clienteId,centro);
@@ -64,8 +67,8 @@ function _completarAgendaFaltantes(clienteId, centro, km, tr){
   if(!entry) return; // si no existe la entrada, la crea _subirAgendaEntry por separado
   if(entry.km) return; // ya tiene km — nunca sobreescribir un dato que ya está correcto
   var docId=k.replace(/[\/\s]/g,'-');
-  _db.collection('agenda').doc(docId).update({ km: km, tr: tr||'' }).then(function(){
-    entry.km=km; entry.tr=tr||''; local[k]=entry; setAgenda(local);
+  _db.collection('agenda').doc(docId).update({ km: _agendaValor(km), tr: _agendaValor(tr) }).then(function(){
+    entry.km=_agendaValor(km); entry.tr=_agendaValor(tr); local[k]=entry; setAgenda(local);
   }).catch(_fallo('_completarAgendaFaltantes agenda.update'));
 }
 function _subirAgendaEntry(clienteId,centro,tienda,dir,tel,km,tr){
@@ -84,7 +87,7 @@ function _subirAgendaEntry(clienteId,centro,tienda,dir,tel,km,tr){
       return;
     }
     var esAdmin=window._sesion && window._sesion.rol==='admin';
-    var data={clienteId:clienteId,centro:centro,tienda:tienda||'',dir:dir||'',tel:tel||'',km:km||'',tr:tr||'',creadoPor:(window._sesion&&window._sesion.nombre)||'',fechaCreacion:Date.now(),estado:esAdmin?'aceptada':'pendiente',vistaAdmin:false};
+    var data={clienteId:clienteId,centro:centro,tienda:tienda||'',dir:dir||'',tel:tel||'',km:_agendaValor(km),tr:_agendaValor(tr),creadoPor:(window._sesion&&window._sesion.nombre)||'',fechaCreacion:Date.now(),estado:esAdmin?'aceptada':'pendiente',vistaAdmin:false};
     ref.set(data).then(function(){
       var a=getAgenda(); a[k]=data; setAgenda(a);
     }).catch(_fallo('_subirAgendaEntry #1'));

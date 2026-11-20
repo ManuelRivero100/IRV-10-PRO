@@ -358,13 +358,16 @@ function renderClientes(){
   el.style.display=_sinP ? 'none' : '';
   el.innerHTML='';
   if(_sinP) return;
-  lista.forEach(function(c){
+  // Pantalla inicial con TRES iconos: Mercadona, Servicios y Reparaciones (clientes "particular") y "Obras" (todos los clientes fijos). Mercadona y Servicios y
+  // Reparaciones entran directos a su menu; "Obras" despliega debajo a sus clientes (y "Anadir" para el administrador). Se recuerda si esta desplegado.
+  var _esAdm=_esAdmin();
+  function _iconoCliente(c){
     var s=stats[c.id]||{activas:0,ultimaFin:''};
     var ico=c.tipo==='mercadona'?'&#127978;':c.tipo==='particular'?'&#128100;':'&#127970;';
     var cls=c.tipo==='mercadona'?'ico-mercadona':c.tipo==='particular'?'ico-particular':'ico-other';
     var div=document.createElement('div');
     div.className='app-icon';
-    if(c.id!=='mercadona' && _esAdmin()){
+    if(c.id!=='mercadona' && _esAdm){
       var db=document.createElement('button');
       db.className='app-del-btn';
       db.innerHTML='&#x2715;';
@@ -385,24 +388,58 @@ function renderClientes(){
     lbl.className='app-icon-label';
     lbl.textContent=c.nombre;
     div.appendChild(lbl);
-    (function(cid2){div.addEventListener('click',function(){seleccionarCliente(cid2);});})(c.id);
-    el.appendChild(div);
-  });
-  if(_esAdmin()){
-    var addDiv=document.createElement('div');
-    addDiv.className='app-icon';
-    var ai=document.createElement('div');
-    ai.className='app-icon-img ico-nuevo';
-    ai.style.fontSize='28px';
-    ai.innerHTML='&#43;';
-    addDiv.appendChild(ai);
-    var al=document.createElement('span');
-    al.className='app-icon-label';
-    al.style.color='rgba(255,255,255,.5)';
-    al.textContent='Añadir';
-    addDiv.appendChild(al);
-    addDiv.addEventListener('click',function(){goTo('w-nuevo-cliente');});
-    el.appendChild(addDiv);
+    (function(cid2){div.addEventListener('click',function(){window._obrasAbierto=false; seleccionarCliente(cid2);});})(c.id);
+    return div;
+  }
+  var _directos=lista.filter(function(c){ return c.tipo==='mercadona'; }).concat(lista.filter(function(c){ return c.tipo==='particular'; }));
+  var _obras=lista.filter(function(c){ return c.tipo!=='mercadona' && c.tipo!=='particular'; });
+  _directos.forEach(function(c){ el.appendChild(_iconoCliente(c)); });
+  if(_obras.length || _esAdm){
+    var _abierto=!!window._obrasAbierto;
+    var _sumaAct=0; _obras.forEach(function(c){ _sumaAct+=(stats[c.id]||{activas:0}).activas; });
+    var gDiv=document.createElement('div');
+    gDiv.className='app-icon'+(_abierto?' app-icon-abierto':'');
+    var gImg=document.createElement('div');
+    gImg.className='app-icon-img ico-other';
+    gImg.innerHTML='&#127959;&#65039;';
+    gDiv.appendChild(gImg);
+    if(_sumaAct>0){
+      var gBadge=document.createElement('span');
+      gBadge.className='app-badge';
+      gBadge.textContent=_sumaAct;
+      gDiv.appendChild(gBadge);
+    }
+    var gLbl=document.createElement('span');
+    gLbl.className='app-icon-label';
+    gLbl.textContent='Obras';
+    gDiv.appendChild(gLbl);
+    gDiv.addEventListener('click',function(){ window._obrasAbierto=!window._obrasAbierto; renderClientes(); });
+    el.appendChild(gDiv);
+    if(_abierto){
+      var panel=document.createElement('div');
+      panel.className='obras-panel';
+      var sub=document.createElement('div');
+      sub.className='app-grid';
+      _obras.forEach(function(c){ sub.appendChild(_iconoCliente(c)); });
+      if(_esAdm){
+        var addDiv=document.createElement('div');
+        addDiv.className='app-icon';
+        var ai=document.createElement('div');
+        ai.className='app-icon-img ico-nuevo';
+        ai.style.fontSize='28px';
+        ai.innerHTML='&#43;';
+        addDiv.appendChild(ai);
+        var al=document.createElement('span');
+        al.className='app-icon-label';
+        al.style.color='rgba(255,255,255,.5)';
+        al.innerHTML='A&ntilde;adir';
+        addDiv.appendChild(al);
+        addDiv.addEventListener('click',function(){goTo('w-nuevo-cliente');});
+        sub.appendChild(addDiv);
+      }
+      panel.appendChild(sub);
+      el.appendChild(panel);
+    }
   }
 }
 
