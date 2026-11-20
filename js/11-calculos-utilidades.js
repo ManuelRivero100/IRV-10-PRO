@@ -35,7 +35,7 @@ function _selAppMejorar(sel){
 }
 function _selAppTodos(){
   var l=document.querySelectorAll('select');
-  for(var i=0;i<l.length;i++){ if(l[i]._selBtn) _selAppRefrescar(l[i]); else _selAppMejorar(l[i]); }
+  for(var i=0;i<l.length;i++){ if(l[i]._selBtn) _selAppRefrescar(l[i]); else _selAppMejorar(l[i]); } _fhTodos();
 }
 function _selAppAbrir(sel){
   if(sel.disabled) return;
@@ -66,6 +66,142 @@ function _selAppCerrar(){ var d=document.getElementById('dlgSelApp'); if(d) d.cl
   setInterval(_selAppTodos,500);
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_selAppTodos); else _selAppTodos();
 })();
+// Fechas, horas y archivos con el estilo de la app: cada <input type=date|time|file> nativo del movil se oculta y se sustituye por un boton + calendario / selector de hora propios (su .value, oninput/onchange, min y max siguen funcionando igual).
+var _FH_MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+var _fhS={inp:null,vista:null,hh:0,mm:0};
+function _fhP2(n){ return (n<10?'0':'')+n; }
+function _fhISO(d){ return d.getFullYear()+'-'+_fhP2(d.getMonth()+1)+'-'+_fhP2(d.getDate()); }
+function _fhParse(v){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||''); return m?new Date(+m[1],+m[2]-1,+m[3]):null; }
+function _fhRefrescar(inp){
+  var b=inp._fhBtn; if(!b) return;
+  var tp=inp.type, v=inp.value, t='', ph='Elegir fecha';
+  if(tp==='date'){ var d=_fhParse(v); t=d?(_fhP2(d.getDate())+'/'+_fhP2(d.getMonth()+1)+'/'+d.getFullYear()):''; }
+  else if(tp==='time'){ t=v?String(v).slice(0,5):''; ph='Elegir hora'; }
+  else { t=(inp.files&&inp.files[0])?inp.files[0].name:''; ph='Elegir archivo...'; }
+  var k=t||ph;
+  if(b._t!==k){ b._t=k; var s=b.firstChild; s.textContent=k; s.className='fh-txt'+(t?'':' fh-vacio'); }
+  b.style.display=(inp.style.display==='none')?'none':'';
+  b.disabled=!!(inp.disabled||inp.readOnly);
+}
+function _fhMejorar(inp){
+  if(inp._fhBtn||inp.getAttribute('data-nativo')==='1') return;
+  var tp=inp.type, ico=(tp==='date')?'&#128197;':((tp==='time')?'&#128336;':'&#128206;');
+  var b=document.createElement('button'); b.type='button';
+  b.className=(inp.className?inp.className+' ':'')+'fh-app-btn';
+  b.style.cssText=inp.style.cssText;
+  b.innerHTML='<span class="fh-txt"></span><span class="fh-ico">'+ico+'</span>';
+  b.onclick=function(){ if(tp==='date') _fhAbrirFecha(inp); else if(tp==='time') _fhAbrirHora(inp); else inp.click(); };
+  inp.parentNode.insertBefore(b,inp.nextSibling);
+  inp._fhBtn=b; inp.classList.add('sel-app-oculto');
+  inp.addEventListener('change',function(){ _fhRefrescar(inp); });
+  _fhRefrescar(inp);
+}
+function _fhTodos(){
+  var l=document.querySelectorAll('input[type=date],input[type=time],input[type=file]');
+  for(var i=0;i<l.length;i++){ if(l[i]._fhBtn) _fhRefrescar(l[i]); else _fhMejorar(l[i]); }
+}
+function _fhPoner(inp,v){
+  if(inp.value!==v){
+    inp.value=v;
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  _fhTodos();
+}
+function _fhTitulo(inp,porDefecto){
+  var f=inp.closest?inp.closest('.field'):null, lb=f?f.querySelector('label'):null;
+  var t=lb?String(lb.textContent).replace(/\*/g,'').replace(/\s+/g,' ').trim():'';
+  return t||porDefecto;
+}
+function _fhObligatorio(inp){ var f=inp.closest?inp.closest('.field'):null; return !!(f&&f.querySelector('.req')); }
+function _fhDialogo(id,html){
+  var d=document.getElementById(id);
+  if(!d){
+    d=document.createElement('div'); d.className='dialogo'; d.id=id;
+    d.onclick=function(e){ if(e.target===d) _fhCerrar(); };
+    d.innerHTML='<div class="dialogo-box">'+html+'</div>';
+  }
+  document.body.appendChild(d);
+  return d;
+}
+function _fhCerrar(){
+  ['dlgFhFecha','dlgFhHora'].forEach(function(i){ var d=document.getElementById(i); if(d) d.classList.remove('show'); });
+  _fhS.inp=null;
+}
+// ----- Calendario -----
+function _fhAbrirFecha(inp){
+  if(inp.disabled||inp.readOnly) return;
+  _fhS.inp=inp;
+  var d=_fhDialogo('dlgFhFecha',
+    '<div class="dialogo-titulo" id="fhFTit"></div>'
+    +'<div class="fh-cab"><button type="button" onclick="_fhMes(-12)">&#171;</button><button type="button" onclick="_fhMes(-1)">&#8249;</button><div class="fh-mes" id="fhMes"></div><button type="button" onclick="_fhMes(1)">&#8250;</button><button type="button" onclick="_fhMes(12)">&#187;</button></div>'
+    +'<div class="fh-sem"><div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div></div>'
+    +'<div class="fh-dias" id="fhDias"></div>'
+    +'<div class="fh-fila"><button type="button" class="btn btn-s" id="fhHoy" onclick="_fhHoy()">Hoy</button><button type="button" class="btn btn-s" id="fhQuitarF" onclick="_fhQuitar()">Quitar fecha</button></div>'
+    +'<div class="fh-fila"><button type="button" class="btn btn-s" onclick="_fhCerrar()">Cancelar</button></div>');
+  document.getElementById('fhFTit').textContent=_fhTitulo(inp,'Fecha');
+  var cur=_fhParse(inp.value)||_fhParse(_fhISO(new Date()));
+  _fhS.vista=new Date(cur.getFullYear(),cur.getMonth(),1);
+  document.getElementById('fhQuitarF').style.display=(_fhObligatorio(inp)||!inp.value)?'none':'';
+  _fhPintarCal();
+  d.classList.add('show');
+}
+function _fhFuera(iso){ var inp=_fhS.inp; return !!(inp&&((inp.min&&iso<inp.min)||(inp.max&&iso>inp.max))); }
+function _fhPintarCal(){
+  var v=_fhS.vista, inp=_fhS.inp; if(!v||!inp) return;
+  document.getElementById('fhMes').textContent=_FH_MES[v.getMonth()]+' '+v.getFullYear();
+  var primero=(new Date(v.getFullYear(),v.getMonth(),1).getDay()+6)%7, n=new Date(v.getFullYear(),v.getMonth()+1,0).getDate();
+  var hoy=_fhISO(new Date()), h='', i, d, iso, dow, cl;
+  for(i=0;i<primero;i++) h+='<div class="fh-d vacio"></div>';
+  for(d=1;d<=n;d++){
+    iso=v.getFullYear()+'-'+_fhP2(v.getMonth()+1)+'-'+_fhP2(d);
+    dow=new Date(v.getFullYear(),v.getMonth(),d).getDay();
+    cl='fh-d'+(iso===inp.value?' sel':'')+(iso===hoy?' hoy':'')+((dow===0||dow===6)?' finde':'');
+    if(_fhFuera(iso)) h+='<div class="'+cl+' off">'+d+'</div>';
+    else h+='<div class="'+cl+'" onclick="_fhDia('+d+')">'+d+'</div>';
+  }
+  document.getElementById('fhDias').innerHTML=h;
+  document.getElementById('fhHoy').disabled=_fhFuera(hoy);
+}
+function _fhMes(n){ var v=_fhS.vista; if(!v) return; _fhS.vista=new Date(v.getFullYear(),v.getMonth()+n,1); _fhPintarCal(); }
+function _fhDia(d){
+  var inp=_fhS.inp, v=_fhS.vista; if(!inp||!v) return;
+  var iso=v.getFullYear()+'-'+_fhP2(v.getMonth()+1)+'-'+_fhP2(d);
+  _fhCerrar(); _fhPoner(inp,iso);
+}
+function _fhHoy(){ var inp=_fhS.inp; if(!inp) return; var iso=_fhISO(new Date()); if(_fhFuera(iso)) return; _fhCerrar(); _fhPoner(inp,iso); }
+function _fhQuitar(){ var inp=_fhS.inp; if(!inp) return; _fhCerrar(); _fhPoner(inp,''); }
+// ----- Hora -----
+function _fhAbrirHora(inp){
+  if(inp.disabled||inp.readOnly) return;
+  _fhS.inp=inp;
+  var hs='<div class="fh-t">Hora</div>', ms='<div class="fh-t">Minutos</div>', i;
+  for(i=0;i<24;i++) hs+='<div class="fh-i" data-n="'+i+'" onclick="_fhElegirHora('+i+')">'+_fhP2(i)+'</div>';
+  for(i=0;i<60;i++) ms+='<div class="fh-i" data-n="'+i+'" onclick="_fhElegirMin('+i+')">'+_fhP2(i)+'</div>';
+  var d=_fhDialogo('dlgFhHora',
+    '<div class="dialogo-titulo" id="fhHTit"></div>'
+    +'<div class="fh-grande" id="fhHG"></div>'
+    +'<div class="fh-cols"><div class="fh-col" id="fhCH"></div><div class="fh-col" id="fhCM"></div></div>'
+    +'<div class="fh-fila"><button type="button" class="btn btn-s" onclick="_fhCerrar()">Cancelar</button><button type="button" class="btn btn-s" id="fhQuitarH" onclick="_fhQuitar()">Quitar hora</button><button type="button" class="btn btn-p" onclick="_fhAceptarHora()">Aceptar</button></div>');
+  document.getElementById('fhCH').innerHTML=hs; document.getElementById('fhCM').innerHTML=ms;
+  document.getElementById('fhHTit').textContent=_fhTitulo(inp,'Hora');
+  var m=/^(\d{1,2}):(\d{2})/.exec(inp.value||''), ahora=new Date();
+  _fhS.hh=m?+m[1]:ahora.getHours(); _fhS.mm=m?+m[2]:ahora.getMinutes();
+  document.getElementById('fhQuitarH').style.display=(_fhObligatorio(inp)||!inp.value)?'none':'';
+  d.classList.add('show');
+  _fhPintarHora(true);
+}
+function _fhPintarHora(centrar){
+  document.getElementById('fhHG').textContent=_fhP2(_fhS.hh)+':'+_fhP2(_fhS.mm);
+  [['fhCH',_fhS.hh],['fhCM',_fhS.mm]].forEach(function(c){
+    var col=document.getElementById(c[0]), its=col.querySelectorAll('.fh-i'), k, on;
+    for(k=0;k<its.length;k++){ on=(+its[k].getAttribute('data-n')===c[1]); its[k].classList.toggle('sel',on); if(on&&centrar) col.scrollTop=its[k].offsetTop-col.clientHeight/2+its[k].offsetHeight/2; }
+  });
+}
+function _fhElegirHora(n){ _fhS.hh=n; _fhPintarHora(false); }
+function _fhElegirMin(n){ _fhS.mm=n; _fhPintarHora(false); }
+function _fhAceptarHora(){ var inp=_fhS.inp; if(!inp) return; var v=_fhP2(_fhS.hh)+':'+_fhP2(_fhS.mm); _fhCerrar(); _fhPoner(inp,v); }
+
 function _avisoDisp(msg){ if(typeof _toast==='function') _toast(msg,'var(--red)'); else alert(msg); }
 // Identidad del parte que se está llenando (para no compararlo consigo mismo al editarlo o reemplazarlo)
 function _idParteEnFormDisp(){
