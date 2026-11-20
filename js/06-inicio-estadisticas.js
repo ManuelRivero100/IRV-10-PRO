@@ -153,6 +153,25 @@ function tecToggleNivel(hdr,id,nivel){
   var chev=document.getElementById('chev_'+nivel+'_'+id); if(chev) chev.innerHTML=open?'&#9650;':'&#9660;';
 }
 
+// Filtro de clientes de Estadisticas con el estilo de la app (en vez del selector nativo del movil)
+function statsActualizarEtiquetaCliente(){
+  var sel=$('statsCliente'), t=$('statsClienteTxt');
+  if(sel && t){ var o=sel.options[sel.selectedIndex]; t.textContent=o?o.text:'Todos los clientes'; }
+}
+function statsAbrirClientes(){
+  var sel=$('statsCliente'), lista=$('statsClienteLista'); if(!sel||!lista) return;
+  lista.innerHTML=Array.prototype.map.call(sel.options,function(o){
+    var on=(o.value===sel.value);
+    return '<div class="opc-item'+(on?' sel':'')+'" data-v="'+escHtml(o.value)+'" onclick="statsElegirCliente(this.getAttribute(\'data-v\'))"><span>'+escHtml(o.text)+'</span>'+(on?'<span>&#10003;</span>':'')+'</div>';
+  }).join('');
+  $('dlgStatsCliente').classList.add('show');
+}
+function statsElegirCliente(v){
+  var sel=$('statsCliente'); if(sel) sel.value=v;
+  $('dlgStatsCliente').classList.remove('show');
+  statsActualizar();
+}
+function statsCerrarClientes(){ var d=$('dlgStatsCliente'); if(d) d.classList.remove('show'); }
 function statsInit(){
   var sel=$('statsCliente');
   if(!sel) return;
@@ -211,6 +230,7 @@ function statsFiltrar(){
 }
 
 function statsActualizar(){
+  statsActualizarEtiquetaCliente();
   statsVolverMain();
   var datos=statsFiltrar();
   var _os=statsGetOrdenEstados();

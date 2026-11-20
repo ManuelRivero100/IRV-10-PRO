@@ -12,6 +12,60 @@ function _hmDisp(s){ var m=String(s==null?'':s).match(/^(\d{1,2}):(\d{2})/); ret
 function _ivDisp(p){ var a=_hmDisp(p.arr), b=p.lea?_hmDisp(p.lea):((typeof p.fin==='number')?p.fin:null); if(a===null||b===null) return null; if(b<=a) b+=1440; return [a,b]; }
 function _docIdDisp(p){ return ((p.clienteId||'mercadona')+'_'+p.fecha+'_'+p.centro+'_'+p.pedido).replace(/[\/\s]/g,'-'); }
 function _igualDisp(a,b){ return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase(); }
+// Selectores con el estilo de la app: todo <select> nativo del movil se oculta y se sustituye por un boton + lista propia (su .value, onchange y opciones siguen funcionando igual).
+var _selAppActual=null;
+function _selAppRefrescar(sel){
+  var b=sel._selBtn; if(!b) return;
+  var o=sel.options[sel.selectedIndex], t=o?o.text:'';
+  if(b._t!==t){ b._t=t; b.firstChild.textContent=t||' '; }
+  b.style.display=(sel.style.display==='none')?'none':'';
+  b.disabled=sel.disabled;
+}
+function _selAppMejorar(sel){
+  if(sel._selBtn||sel.id==='statsCliente'||sel.getAttribute('data-nativo')==='1') return;
+  var b=document.createElement('button'); b.type='button';
+  b.className=(sel.className?sel.className+' ':'')+'sel-app-btn';
+  b.style.cssText=sel.style.cssText;
+  b.innerHTML='<span class="sel-app-txt"></span><span class="sel-app-flecha">&#9662;</span>';
+  b.onclick=function(){ _selAppAbrir(sel); };
+  sel.parentNode.insertBefore(b,sel.nextSibling);
+  sel._selBtn=b; sel.classList.add('sel-app-oculto');
+  sel.addEventListener('change',function(){ _selAppRefrescar(sel); });
+  _selAppRefrescar(sel);
+}
+function _selAppTodos(){
+  var l=document.querySelectorAll('select');
+  for(var i=0;i<l.length;i++){ if(l[i]._selBtn) _selAppRefrescar(l[i]); else _selAppMejorar(l[i]); }
+}
+function _selAppAbrir(sel){
+  if(sel.disabled) return;
+  _selAppActual=sel;
+  var d=document.getElementById('dlgSelApp');
+  if(!d){
+    d=document.createElement('div'); d.className='dialogo'; d.id='dlgSelApp';
+    d.onclick=function(e){ if(e.target===d) _selAppCerrar(); };
+    d.innerHTML='<div class="dialogo-box"><div class="dialogo-titulo" id="dlgSelAppTit"></div><div class="opc-lista" id="dlgSelAppLista"></div><button type="button" class="btn btn-s btn-full" style="margin-top:12px;" onclick="_selAppCerrar()">Cancelar</button></div>';
+  }
+  document.body.appendChild(d);
+  var f=sel.closest?sel.closest('.field'):null, lb=f?f.querySelector('label'):null, o0=sel.options[0];
+  document.getElementById('dlgSelAppTit').textContent=lb?lb.textContent:((o0&&o0.value==='')?o0.text:'Elegir');
+  document.getElementById('dlgSelAppLista').innerHTML=Array.prototype.map.call(sel.options,function(o,i){
+    var on=(i===sel.selectedIndex);
+    return '<div class="opc-item'+(on?' sel':'')+'" onclick="_selAppElegir('+i+')"><span>'+escHtml(o.text)+'</span>'+(on?'<span>&#10003;</span>':'')+'</div>';
+  }).join('');
+  d.classList.add('show');
+}
+function _selAppElegir(i){
+  var sel=_selAppActual; _selAppCerrar(); if(!sel) return;
+  if(sel.selectedIndex!==i){ sel.selectedIndex=i; sel.dispatchEvent(new Event('change',{bubbles:true})); }
+  _selAppTodos();
+}
+function _selAppCerrar(){ var d=document.getElementById('dlgSelApp'); if(d) d.classList.remove('show'); _selAppActual=null; }
+(function(){
+  try{ new MutationObserver(function(){ _selAppTodos(); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+  setInterval(_selAppTodos,500);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_selAppTodos); else _selAppTodos();
+})();
 function _avisoDisp(msg){ if(typeof _toast==='function') _toast(msg,'var(--red)'); else alert(msg); }
 // Identidad del parte que se está llenando (para no compararlo consigo mismo al editarlo o reemplazarlo)
 function _idParteEnFormDisp(){
