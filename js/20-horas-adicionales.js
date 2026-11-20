@@ -224,7 +224,7 @@ function horasPintarDieta(){
 }
 
 // Premarcado del lugar en un día SIN registro: solo la tienda y el número de la tienda (centro) de los partes de ese día del técnico (si hay
-// varios, separados por coma). Si el nombre de la tienda ya lleva el número, no se repite. El técnico lo completa y lo corrige; no se
+// varios, uno debajo de otro en lineas distintas). Si el nombre de la tienda ya lleva el número, no se repite. El técnico lo completa y lo corrige; no se
 // premarca nada más (ni horas ni comentario).
 var _horasLugarSugerido='';
 function horasLugarSugerido(nombre, fecha){
@@ -234,7 +234,7 @@ function horasLugarSugerido(nombre, fecha){
     var txt=(c && t.indexOf(c)<0) ? (t+' '+c).trim() : t;
     if(txt && !vistos[txt]){ vistos[txt]=1; l.push(txt); }
   });
-  return l.join(', ');
+  return l.join('\n');
 }
 function horasCargarDia(){
   var nombre=window._sesion ? window._sesion.nombre : '';
